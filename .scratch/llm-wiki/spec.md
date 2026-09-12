@@ -26,7 +26,7 @@ A consulta é o inverso: conversacional, com o assistente no comando. A CLI exp�
 2. Como curador, quero declarar a língua em que as páginas serão escritas uma única vez para toda a wiki, para que ingestão e consulta não precisem adivinhar e a busca lexical não fracasse por cruzar idiomas.
 3. Como curador, quero declarar a língua original de cada Fonte separadamente da língua da wiki, para que material em inglês produza páginas na minha língua sem que eu precise traduzir nada à mão.
 4. Como curador de uma wiki sobre um projeto de código, quero declarar uma allowlist explícita de diretórios, para que teste, migração, código gerado e dependência de terceiros não gerem páginas inúteis.
-5. Como curador, quero que a ferramenta recuse silenciosamente uma Fonte fora da allowlist em vez de ingerir por engano, para que a wiki não infle sem eu perceber.
+5. Como curador, quero que a ferramenta ignore uma Fonte fora da allowlist e me diga quantos arquivos ficaram de fora, para que a wiki não infle sem eu perceber nem encolha sem eu saber.
 6. Como curador de uma wiki sobre código de terceiros, quero apontar para um repositório externo pinado num commit, para que a wiki seja reproduzível sem eu copiar o código para dentro do meu repositório.
 
 ### Ingerir
@@ -64,40 +64,45 @@ A consulta é o inverso: conversacional, com o assistente no comando. A CLI exp�
 31. Como curador, quero saber quais páginas são Páginas Sujas, para que eu veja onde a colagem de várias leituras precisa virar uma voz só.
 32. Como curador, quero disparar um passe de consolidação por vontade própria e não durante a ingestão, para que eu decida coerência só depois de ter todas as Fontes na mão.
 33. Como curador, quero que a consolidação releia apenas a página, sem reabrir as Fontes, para que o passe seja barato o suficiente para rodar sobre muitas páginas.
+34. Como curador, quero que a consolidação possa fundir seções e encurtar a página, para que unificar vozes seja possível — coisa que a guarda proíbe na escrita comum.
+35. Como curador, quero que nem a consolidação consiga perder proveniência, para que a liberdade de reescrever a forma não vire liberdade de apagar rastro.
+36. Como curador, quero remover uma entrada de proveniência por comando explícito, para que eu conserte uma citação errada sem desligar a guarda.
+37. Como curador, quero mover ou renomear uma página por comando explícito que atualize quem aponta para ela, para que reorganizar a wiki não produza links quebrados.
+38. Como curador, quero que o trabalhador não tenha acesso a nenhum desses dois comandos, para que a guarda não tenha chave-mestra.
 
 ### Perceber obsolescência
 
-34. Como curador, quero que uma página derivada de código seja marcada Página Obsoleta quando o commit daquele arquivo mudar, para que a obsolescência seja uma verificação exata e não um chute de calendário.
-35. Como curador, quero que uma página derivada de arquivo mude de estado quando o hash do conteúdo mudar, para que editar um PDF ou uma nota invalide o que dela derivou.
-36. Como curador, quero saber o que mudou na Fonte desde a derivação, para que a reingestão releia só a parte afetada.
-37. Como curador, quero que citações de código usem o símbolo como Âncora, e não o número de linha, para que a referência sobreviva a mover-se de arquivo e a reindentação.
-38. Como curador, quero saber quais páginas ficaram órfãs, para que conhecimento que ninguém alcança não fique escondido na wiki.
+39. Como curador, quero que uma página derivada de código seja marcada Página Obsoleta quando o commit daquele arquivo mudar, para que a obsolescência seja uma verificação exata e não um chute de calendário.
+40. Como curador, quero que uma página derivada de arquivo mude de estado quando o hash do conteúdo mudar, para que editar um PDF ou uma nota invalide o que dela derivou.
+41. Como curador, quero saber o que mudou na Fonte desde a derivação, para que a reingestão releia só a parte afetada.
+42. Como curador, quero que citações de código usem o símbolo como Âncora, e não o número de linha, para que a referência sobreviva a mover-se de arquivo e a reindentação.
+43. Como curador, quero saber quais páginas ficaram órfãs, para que conhecimento que ninguém alcança não fique escondido na wiki.
 
 ### Consultar
 
-39. Como assistente consultando, quero uma busca que ranqueie fora do meu contexto e me devolva só os candidatos vencedores, para que eu não gaste o orçamento de tokens lendo o índice para descobrir o que ler.
-40. Como assistente consultando, quero que cada resultado traga id, título, `type` e descrição, para que eu escolha informado a página a abrir sem pagar o corpo dela.
-41. Como assistente consultando, quero poder pedir um snippet do trecho que casou, para que perguntas factuais se resolvam no próprio recorte sem abrir a página.
-42. Como assistente consultando, quero que o snippet seja opcional e não o padrão, para que consultas comuns não paguem por um recurso que só uma minoria aproveita.
-43. Como assistente consultando, quero filtrar a busca por `type` e por tags, para que eu estreite o resultado quando já sei a natureza do que procuro.
-44. Como assistente consultando, quero ler uma página inteira de uma vez, para que eu não precise saber que seções ela tem antes de pedir.
-45. Como assistente consultando, quero navegar a hierarquia um nível por vez, para que eu me situe num Bundle grande sem carregá-lo inteiro.
-46. Como assistente consultando, quero descobrir o que aponta para uma página, para que eu siga o grafo de conhecimento em vez de repetir buscas.
-47. Como assistente consultando, quero ser avisado quando uma página que abri está obsoleta, para que eu qualifique a resposta em vez de afirmar algo desatualizado com confiança.
+44. Como assistente consultando, quero uma busca que ranqueie fora do meu contexto e me devolva só os candidatos vencedores, para que eu não gaste o orçamento de tokens lendo o índice para descobrir o que ler.
+45. Como assistente consultando, quero que cada resultado traga id, título, `type` e descrição, para que eu escolha informado a página a abrir sem pagar o corpo dela.
+46. Como assistente consultando, quero poder pedir um snippet do trecho que casou, para que perguntas factuais se resolvam no próprio recorte sem abrir a página.
+47. Como assistente consultando, quero que o snippet seja opcional e não o padrão, para que consultas comuns não paguem por um recurso que só uma minoria aproveita.
+48. Como assistente consultando, quero filtrar a busca por `type` e por tags, para que eu estreite o resultado quando já sei a natureza do que procuro.
+49. Como assistente consultando, quero ler uma página inteira de uma vez, para que eu não precise saber que seções ela tem antes de pedir.
+50. Como assistente consultando, quero navegar a hierarquia um nível por vez, para que eu me situe num Bundle grande sem carregá-lo inteiro.
+51. Como assistente consultando, quero descobrir o que aponta para uma página, para que eu siga o grafo de conhecimento em vez de repetir buscas.
+52. Como assistente consultando, quero ser avisado quando uma página que abri está obsoleta, para que eu qualifique a resposta em vez de afirmar algo desatualizado com confiança.
 
 ### Ler como humano
 
-48. Como leitor humano, quero abrir a wiki no GitHub e navegar pelos links, para que eu não precise de ferramenta nenhuma instalada para ler.
-49. Como leitor humano, quero abrir a wiki no Obsidian, para que eu use o grafo e a busca que já conheço.
-50. Como leitor humano, quero um `index.md` por diretório com título e uma linha de descrição por item, para que eu escolha o que ler sem abrir tudo.
-51. Como leitor humano, quero um registro cronológico do que a ferramenta fez, para que eu audite a evolução da wiki sem ler o histórico do git.
+53. Como leitor humano, quero abrir a wiki no GitHub e navegar pelos links, para que eu não precise de ferramenta nenhuma instalada para ler.
+54. Como leitor humano, quero abrir a wiki no Obsidian, para que eu use o grafo e a busca que já conheço.
+55. Como leitor humano, quero um `index.md` por diretório com título e uma linha de descrição por item, para que eu escolha o que ler sem abrir tudo.
+56. Como leitor humano, quero um registro cronológico do que a ferramenta fez, para que eu audite a evolução da wiki sem ler o histórico do git.
 
 ### Usar de dentro do assistente
 
-52. Como pessoa usando Kiro, Copilot ou Claude, quero chamar a ferramenta de dentro do assistente, para que eu não precise de chave de API de LLM nenhuma.
-53. Como pessoa usando um assistente qualquer, quero que a ferramenta funcione onde houver shell, para que eu não fique preso a um host específico.
-54. Como pessoa instalando, quero invocar a ferramenta sem instalação prévia, para que ela funcione em máquinas que eu não configurei.
-55. Como pessoa usando o assistente, quero uma skill que ensine quando e como chamar a busca, para que o assistente use a wiki sem eu explicar a cada sessão.
+57. Como pessoa usando Kiro, Copilot ou Claude, quero chamar a ferramenta de dentro do assistente, para que eu não precise de chave de API de LLM nenhuma.
+58. Como pessoa usando um assistente qualquer, quero que a ferramenta funcione onde houver shell, para que eu não fique preso a um host específico.
+59. Como pessoa instalando, quero invocar a ferramenta sem instalação prévia, para que ela funcione em máquinas que eu não configurei.
+60. Como pessoa usando o assistente, quero uma skill que ensine quando e como chamar a busca, para que o assistente use a wiki sem eu explicar a cada sessão.
 
 ## Implementation Decisions
 
@@ -120,19 +125,26 @@ A consulta é o inverso: conversacional, com o assistente no comando. A CLI exp�
 - Um trabalhador por Trecho, com contexto limpo, para que a qualidade da página cinquenta seja igual à da página um.
 - A fila de trabalho é **computada** comparando Fontes com o estado da wiki, não persistida. Consequência: retomável em qualquer máquina, sem arquivo de estado para conflitar.
 - A tool de escrita implementa uma **guarda de augmentação**: recusa escrita que remova conteúdo que ela não pode avaliar, e a recusa vem como instrução de correção em vez de exceção. Isso é estrutural, não refinamento — como um conceito aparece em Trechos distintos, a mesma página será escrita por trabalhadores que não se conhecem.
-- A guarda protege **proveniência e cobertura, nunca prosa**. Reescrever um parágrafo é livre; perder rastro não é. As invariantes são estas cinco, e são o contrato que os testes verificam:
+- A guarda protege **proveniência e cobertura, nunca prosa**. Reescrever um parágrafo é livre; perder rastro não é. As invariantes são estas seis, e são o contrato que os testes verificam:
   1. **`sources` é append-only.** A escrita nova é unida à lista existente por `id`; remover uma entrada exige comando explícito de remoção, não uma escrita comum.
   2. **Cabeçalhos não desaparecem.** Todo cabeçalho de seção presente antes tem de estar presente depois. Renomear é remover mais adicionar, e portanto é recusado.
   3. **Footnote referenciada resolve.** Todo label de footnote citado no corpo tem de casar com um `id` de `sources`. Corpo com citação órfã é recusado.
   4. **Identidade é imutável na escrita comum.** `type` e id de uma página existente não mudam por escrita; mudança exige comando próprio, que move a página e atualiza quem aponta para ela.
-  5. **Encolhimento acima do limiar exige intenção.** Corpo que perde mais que uma fração configurável do seu tamanho é recusado a menos que a escrita venha marcada como substituição deliberada.
-- A recusa nomeia a invariante violada e o que foi perdido — quais entradas de `sources`, quais cabeçalhos — para que o trabalhador corrija sem intervenção humana. É o padrão de erro-como-instrução observado na implementação de referência do OKF.
+  5. **Encolhimento acima do limiar é recusado.** Corpo que perde mais que uma fração configurável do seu tamanho não passa.
+  6. **Links de saída são append-only.** Link para um concept existente que estava presente antes tem de continuar presente. Adicionar é livre; remover não.
+- **Não existe marcador de escape por escrita.** O escape é o *modo de operação*, e o modo é determinado por qual comando está rodando, nunca por uma chave que o modelo possa setar. São dois:
+  - **Modo ingestão**, o único disponível ao trabalhador que processa Trechos: valem as seis invariantes, sem exceção.
+  - **Modo consolidação**, disponível somente ao comando de consolidação, que só uma pessoa dispara: as invariantes 2, 5 e 6 são substituídas por uma única, mais frouxa na forma e igualmente rígida no rastro — **toda entrada de `sources` citada antes tem de continuar citada por alguma footnote depois**. Isso libera fundir seções, encurtar e podar link duplicado, que é exatamente o trabalho de unificar vozes, e mantém impossível perder proveniência. As invariantes 1, 3 e 4 continuam valendo nos dois modos.
+- Essa separação é o que faz a guarda ser guarda. Um marcador que o trabalhador pudesse setar seria chave-mestra, e uma trava sem escape nenhum tornaria a consolidação impossível, porque unificar vozes funde seções por definição.
+- A recusa nomeia a invariante violada e o que foi perdido — quais entradas de `sources`, quais cabeçalhos, quais links — para que o trabalhador corrija sem intervenção humana. É o padrão de erro-como-instrução observado na implementação de referência do OKF.
+- **Dois escapes legítimos existem e são comandos próprios, não escritas:** remover uma entrada de `sources`, e mover ou renomear uma página. O segundo atualiza quem aponta para ela na mesma operação. Ambos são operações de curador, indisponíveis ao trabalhador, e ambos precisam de teste — uma guarda implementada como trava absoluta passaria na suíte sem eles.
 
 ### Contrato do trabalhador
 
 - O trabalhador é invocado com **um Trecho já extraído** e uma **shortlist ranqueada** de conceitos vizinhos daquele Trecho. A shortlist obedece à mesma regra do lado de leitura: o índice não entra no contexto, só os vencedores. Entregar o índice inteiro, como a implementação de referência do OKF faz com `list_concepts()`, funciona no Bundle pequeno dela e quebra numa wiki grande.
 - Além disso o trabalhador tem à disposição: buscar na wiki, ler uma página inteira, e gravar página. Nada mais. Ele não enfileira trabalho, não gera índice e não decide o que vem depois.
-- Ao terminar, o trabalhador registra na página quais Trechos contribuíram para ela. Esse registro é o que torna a Página Suja computável sem arquivo de estado — sujeira é a divergência entre o conjunto de Trechos que contribuíram e o conjunto que existia na última consolidação.
+- **A tool carimba a contribuição, não o trabalhador.** Como a CLI entregou o item de trabalho, ela sabe qual Trecho está sendo processado e grava isso na página junto com a escrita, pelo mesmo motivo e do mesmo jeito que preenche `generated`: se o registro dependesse do modelo lembrar, uma omissão faria a página parecer limpa para sempre. O carimbo é o hash do Trecho, não sua posição, para que reordenar a Fonte não invalide páginas à toa.
+- Esse registro é o que torna a Página Suja computável sem arquivo de estado. A consolidação, ao terminar, grava na página o conjunto de Trechos contribuintes naquele instante; **suja é a página cujo conjunto atual difere do conjunto registrado na última consolidação**. Página nunca consolidada e tocada por mais de um Trecho é suja; tocada por um só, não.
 - A consolidação é passe separado e opt-in, com unidade igual à **Página Suja**, e relê só a página.
 - Ordem de leitura de código: folhas do grafo de imports primeiro, subindo para a raiz.
 
@@ -148,7 +160,7 @@ A consulta é o inverso: conversacional, com o assistente no comando. A CLI exp�
 
 - **Sem OCR na v1.** Uma Fonte cujo texto extraído fique abaixo de um mínimo por página é **recusada com erro nomeando o arquivo**, e não entra na fila. PDF escaneado, portanto, falha de forma alta e explícita em vez de produzir páginas vazias — que é o modo de falha caro, porque parece sucesso.
 - Extração que produz zero texto é sempre erro, nunca uma Fonte de zero Trechos.
-- A **Âncora** é gravada na entrada de `sources` que a footnote referencia, e sua forma depende do tipo da Fonte: **símbolo** para código, **número de página** para PDF, **caminho de cabeçalhos** para Markdown e texto. A citação no corpo continua sendo footnote com label igual ao `id` da entrada, que é o mecanismo que o próprio OKF define para atribuição por alegação.
+- A **Âncora** é gravada na entrada de `sources` que a footnote referencia, e sua forma depende do tipo da Fonte: **símbolo** (nome qualificado da função ou classe) para código, **número de página** para PDF, **caminho de cabeçalhos** para Markdown. Texto corrido sem cabeçalho nenhum usa o **índice do Trecho dentro da Fonte**, que é estável porque o Trecho é identificado por hash e não por posição. A citação no corpo continua sendo footnote com label igual ao `id` da entrada, que é o mecanismo que o próprio OKF define para atribuição por alegação.
 
 ### Busca
 
@@ -156,9 +168,10 @@ A consulta é o inverso: conversacional, com o assistente no comando. A CLI exp�
 - O índice de ranqueamento cobre **frontmatter e corpo**, com peso maior para título, descrição e tags. Indexar o corpo não custa token nenhum porque o índice mora em disco. Ranquear só por descrição joga fora o sinal que decide relevância.
 - Payload padrão por resultado: id, título, `type`, descrição. Snippet do trecho que casou fica atrás de flag.
 - Busca **lexical apenas** na primeira versão. Sem embeddings, sem índice vetorial, sem modelo local. Não é a única opção viável sem API — o qmd citado pelo gist faz busca híbrida com re-ranking inteiramente on-device — mas é a mais simples de construir e a única cujo resultado errado você consegue explicar. Depurabilidade e simplicidade são a razão; ausência de alternativa não é. O gancho para híbrido fica previsto, não pago.
-- Leitura é de **página inteira**; manter a página curta é invariante da ingestão. Recuperação por seção só compensa se as páginas crescerem, e se crescerem o problema real é a granularidade da Página Conceitual.
+- Leitura é de **página inteira**. Manter a página curta é invariante da ingestão, e a mecânica é aviso, não recusa: página que passa de um tamanho configurável é reportada pelo lint como candidata a divisão, com os cabeçalhos dela na saída para sugerir onde cortar. Recusar seria pior que o problema, porque forçaria o trabalhador a truncar conhecimento para caber. Recuperação por seção só compensaria se as páginas crescessem, e se crescerem o problema real é a granularidade da Página Conceitual — que é o que o aviso expõe.
 - **Detecção de órfãos está dentro do escopo**, ao contrário da detecção de contradição. A distinção é o que a verificação exige: órfão é uma propriedade do grafo de links, computável sem ler o conteúdo e sem julgamento — página sem nenhuma aresta de entrada, excluídos os `index.md`. Contradição exige entender o que duas páginas afirmam. O Lint do Karpathy junta as duas coisas; nós partimos pela linha do que é determinístico.
-- Dois índices com papéis distintos: `index.md` materializado e versionado, porque é conteúdo humano que o OKF espera; índice de máquina em cache fora do controle de versão, reconstruído quando os arquivos mudarem. Versionar índice derivado é o mesmo erro da fila persistida.
+- Dois índices com papéis distintos: `index.md` materializado e versionado, porque é conteúdo humano que o OKF espera; índice de máquina em cache fora do controle de versão, reconstruído quando os arquivos mudarem. A diferença não é "derivado versus não derivado" — `index.md` também é derivado e vai para o git. É quem edita e quem lê: `index.md` é lido por humano e revisado em diff, o índice de máquina é lido só por programa e reconstruído inteiro, então versioná-lo só produziria conflito em arquivo que ninguém inspeciona.
+- **`index.md` é derivado do frontmatter das páginas, não do manifesto.** O manifesto declara Fontes; o `index.md` lista concepts. As descrições por item saem do `description` de cada página, e a descrição de um diretório é composta a partir dos itens que ele contém, sem LLM.
 
 ### Superfície e distribuição
 
@@ -176,7 +189,7 @@ Um bom teste aqui afirma sobre **comportamento observável**: arquivos que apare
 
 Isso é possível porque a CLI não chama LLM. A superfície de ingestão dela é "me dê o próximo item de trabalho" e "guarde esta página escrita", ambas determinísticas, então **o teste faz o papel do trabalhador**: escreve as páginas que um assistente escreveria, inclusive versões deliberadamente piores para provar que a guarda de augmentação recusa. Não há mock de LLM em nenhum ponto da suíte.
 
-Cobertura pelo mesmo seam: fila computada a partir da comparação Fontes/wiki; delimitação de Trecho por fronteira natural e por teto de orçamento; as cinco invariantes da guarda de augmentação, cada uma com seu caso de recusa e a mensagem que nomeia o que foi perdido; recusa de frontmatter sem `type`; ordem determinística das chaves; `index.md` conforme o §8, com descrição de diretório gerada sem LLM; ordem de resultados da busca sobre fixtures conhecidas; forma do payload com e sem snippet; conteúdo da shortlist entregue ao trabalhador; detecção de obsolescência por SHA e por hash; cálculo de Página Suja a partir do registro de Trechos contribuintes; recusa de Fonte cuja extração fica abaixo do mínimo; recusa de link para id inexistente; detecção de órfãos; ordem folhas-primeiro na leitura de código.
+Cobertura pelo mesmo seam: fila computada a partir da comparação Fontes/wiki; delimitação de Trecho por fronteira natural e por teto de orçamento; as seis invariantes da guarda de augmentação, cada uma com seu caso de recusa e a mensagem que nomeia o que foi perdido; **os dois modos de escrita** — que uma fusão de seções é recusada em modo ingestão e aceita em modo consolidação, e que a perda de citação de uma entrada de `sources` é recusada nos **dois**; **os dois escapes de curador**, remover proveniência e mover página, este último incluindo a atualização de quem apontava para ela, porque sem esses testes uma guarda implementada como trava absoluta passaria na suíte; que o trabalhador não alcança nenhum dos dois comandos; recusa de frontmatter sem `type`; ordem determinística das chaves; carimbo de Trecho aplicado pela tool mesmo quando a escrita não o menciona; `index.md` conforme o §8, derivado do frontmatter e com descrição de diretório gerada sem LLM; ordem de resultados da busca sobre fixtures conhecidas; forma do payload com e sem snippet; conteúdo da shortlist entregue ao trabalhador; detecção de obsolescência por SHA e por hash; cálculo de Página Suja antes e depois de uma consolidação; aviso de página longa com os cabeçalhos na saída; recusa de Fonte cuja extração fica abaixo do mínimo; relatório de arquivos ignorados por allowlist; recusa de link para id inexistente; detecção de órfãos; ordem folhas-primeiro na leitura de código.
 
 **O que o seam não alcança, e não vamos fingir que alcança.** A *preferência* por reusar um id em vez de criar um novo é julgamento do trabalhador, induzido por prosa de skill: não há assert honesto para ela. O que é testável é o mecanismo que a sustenta — que a shortlist entregue contém os candidatos certos, e que um link para id inexistente é recusado. Testes de duplicação semântica ficariam verificando o modelo, não a ferramenta.
 
