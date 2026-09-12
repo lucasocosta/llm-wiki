@@ -1,0 +1,44 @@
+# Ambiente de skills do autor.
+# Não faz parte da ferramenta: é como esta pessoa trabalha, não o que o projeto
+# é. As skills vêm de repositório público de terceiros, e vendorizá-las
+# republicaria trabalho de outro autor sem a licença dele.
+# .kiro/skills/ são apenas symlinks para .agents/skills/, e ficariam pendurados
+# num clone se o alvo não viesse junto. O lock file acompanha o que ele descreve.
+.agents/skills/
+.kiro/skills/
+skills-lock.json
+
+# Estado derivado da wiki.
+# O índice de máquina e qualquer cache de ingestão são reconstrutíveis a partir
+# das páginas. Versionar índice derivado gera conflito de merge em arquivo que
+# ninguém edita à mão — mesmo motivo pelo qual a fila de trabalho é computada e
+# não persistida.
+.llmwiki/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# Sistema operacional e editores
+.DS_Store
+Thumbs.db
+*.swp
+
+# Deliberadamente NÃO ignorados, para que a decisão fique registrada:
+#   sources/       as Fontes vivem no repositório junto da wiki, e o Espelho de
+#                  Fonte guarda hash do conteúdo para detectar mudança.
+#   .scratch/      é o issue tracker do projeto; fora do git, o spec não viaja
+#                  com o repositório.
+#   research/      a pesquisa que fundamenta as decisões.
+#   docs/          ADRs.
+#   uv.lock        dependências pinadas de uma aplicação devem ser versionadas.
