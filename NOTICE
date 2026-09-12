@@ -1,0 +1,22 @@
+llm-wiki
+Copyright (c) 2026 Lucas Costa
+
+This product includes concepts and format conventions derived from the
+Open Knowledge Format (OKF) v0.2 reference agent, which is licensed under
+the Apache License, Version 2.0.
+
+    Open Knowledge Format
+    https://github.com/GoogleCloudPlatform/open-knowledge-format
+    Copyright Google LLC
+    Licensed under the Apache License, Version 2.0
+
+The OKF reference agent's approach to frontmatter parsing/validation, its
+reserved-file conventions (index.md, log.md), its §8 index.md layout, and its
+error-as-instruction pattern for the augmentation guard informed this
+implementation. Where the reference agent synthesizes directory descriptions by
+calling an LLM (Gemini), this project deliberately substitutes a deterministic
+composition function: the CLI never calls an LLM (see docs/adr/0002).
+
+A copy of the Apache License, Version 2.0, may be obtained at:
+
+    http://www.apache.org/licenses/LICENSE-2.0
