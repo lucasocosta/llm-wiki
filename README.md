@@ -53,6 +53,12 @@ máquina. Mudar o teto pode mudar os hashes e gerar trabalho novamente. A opçã
 da CLI não altera o manifesto. Para compartilhar a configuração, versione-a
 no manifesto junto do Bundle e das Fontes.
 
+`--trecho-hash` pode ser repetido para gravar vários Trechos da mesma Fonte numa
+Página Conceitual. Todos os hashes são validados contra o conteúdo atual da Fonte
+indicada por `--source-id`, inclusive para texto, Markdown e PDF. Para reunir
+Fontes diferentes, faça uma escrita por Fonte na mesma página; hashes de outra
+Fonte ou de Trechos que já mudaram são recusados antes de gravar o Bundle.
+
 ## Proveniência e obsolescência
 
 A tool preserva os carimbos anteriores mesmo quando o rascunho do trabalhador
@@ -60,6 +66,13 @@ omite metadados automáticos. Cada Página Conceitual registra as versões das
 Fontes que a produziram. Atualizar o Espelho de Fonte ou reingerir outra página
 não atualiza esse registro. `read-page ID` devolve o conteúdo e o estado de
 obsolescência; `stale report` lista páginas obsoletas e proveniência não verificável.
+
+Os detalhes de entradas existentes em `sources`, como Âncora e URI, são
+preservados quando omitidos na ingestão ou consolidação. Novos campos podem ser
+acrescentados; mudar um valor já registrado exige a remoção explícita da entrada
+pelo curador e sua inclusão corrigida. Arquivos de código com conteúdo idêntico
+conservam suas versões individuais, para que mudanças em qualquer um deles sejam
+detectadas.
 
 Para código local, a revisão é o último commit que alterou cada arquivo
 contribuinte. Conteúdo sem revisão verificável, como arquivo novo ou alterado
@@ -84,3 +97,22 @@ uv run pytest
 Os testes exercitam a CLI por `argv` e verificam disco/stdout; os testes de
 distribuição também executam o binário por subprocesso. A prosa da skill não é
 avaliada por asserts de palavras ou por simulação de julgamento do modelo.
+
+
+## Fonte de código do próprio projeto
+
+Uma Fonte `code` local resolve `location` primeiro **relativo à raiz do projeto**
+(e depois relativo a `sources_dir`), então uma wiki sobre o próprio código não
+precisa de symlink dentro de `sources/`:
+
+```yaml
+sources:
+  - id: meu-codigo
+    type: code
+    location: src/pacote
+    allowlist: ["*.py"]
+```
+
+Diretórios de cache (`__pycache__`, `.git`) nunca são ingeridos; arquivos da
+allowlist que não decodificam como UTF-8 ficam fora da ingestão e aparecem como
+`excluded_unreadable` no `ingest report`.

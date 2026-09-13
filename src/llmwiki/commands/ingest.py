@@ -46,7 +46,12 @@ def register(sub: "argparse._SubParsersAction") -> None:
     w = isub.add_parser("write-page", help="write a worker-authored page (stamps provenance)")
     w.add_argument("--page-id", required=True)
     w.add_argument("--source-id", required=True)
-    w.add_argument("--trecho-hash", required=True)
+    w.add_argument(
+        "--trecho-hash",
+        action="append",
+        required=True,
+        help="Trecho hash(es) the page derives from; repeat the flag for thematic consolidation (ticket 03)",
+    )
     w.add_argument("--trecho-index", type=int, default=0)
     w.add_argument("--anchor", default="")
     w.add_argument(
@@ -80,6 +85,8 @@ def cmd_next(args: argparse.Namespace, root: Path) -> int:
         print(json.dumps({"work_item": None}))
         return 0
     print(json.dumps(item.to_payload()))
+    from llmwiki.usage import record
+    record(root, "next", len(json.dumps(item.to_payload())))
     return 0
 
 
@@ -99,6 +106,8 @@ def cmd_queue(args: argparse.Namespace, root: Path) -> int:
         for t in queue
     ]
     print(json.dumps(payload))
+    from llmwiki.usage import record
+    record(root, "queue", len(json.dumps(payload)))
     return 0
 
 
@@ -122,22 +131,40 @@ def cmd_report(args: argparse.Namespace, root: Path) -> int:
                 entry["excluded_by_allowlist"] = scan.excluded_count
             except (IngestionError, ExtractionError) as exc:
                 entry["error"] = str(exc)
+            else:
+                if getattr(scan, "excluded_unreadable", 0):
+                    entry["excluded_unreadable"] = scan.excluded_unreadable
         per_source.append(entry)
-    print(json.dumps({"sources": per_source}))
+    payload = {"sources": per_source}
+    from llmwiki.usage import summary
+    usage = summary(manifest.root)
+    if usage is not None:
+        payload["usage"] = usage
+    print(json.dumps(payload))
     return 0
 
 
 def cmd_write_page(args: argparse.Namespace, root: Path) -> int:
     manifest = _load(root, args)
     raw = _read_content(args.content_file)
+    if not raw.strip():
+        # Cause + remedy, not the downstream "frontmatter must include a type"
+        # symptom (ticket 04).
+        raise CommandError(
+            f"content-file is empty ({args.content_file}): flush the buffer "
+            f"(f.close()) before invoking write-page; refusing",
+            exit_code=2,
+        )
     try:
         # The worker may or may not include frontmatter; parse leniently.
-        try:
+        # A leading frontmatter delimiter means the draft *intends* to have
+        # frontmatter — a parse failure there is a hard error, not lenience.
+        if raw.lstrip().startswith("---"):
             page = parse_page(raw, require_type=False)
-        except PageError:
+        else:
             page = Page(frontmatter={}, body=raw)
     except PageError as exc:
-        raise CommandError(str(exc))
+        raise CommandError(str(exc), exit_code=2)
 
     bundle = manifest.bundle_path
     page_path = bundle / f"{args.page_id}.md"
@@ -181,12 +208,13 @@ def cmd_write_page(args: argparse.Namespace, root: Path) -> int:
             page_id=args.page_id,
             page=page,
             source_id=args.source_id,
-            trecho_hash=args.trecho_hash,
+            trecho_hash=args.trecho_hash if isinstance(args.trecho_hash, list) else args.trecho_hash,
         )
-    except IngestionError as exc:
+    except (IngestionError, ExtractionError, ManifestError) as exc:
         raise CommandError(str(exc))
 
     generate_index_files(bundle, language=manifest.language)
-    append_log(bundle, f"write-page {args.page_id} <- trecho {args.trecho_hash[:12]}")
+    hashes = args.trecho_hash if isinstance(args.trecho_hash, list) else [args.trecho_hash]
+    append_log(bundle, f"write-page {args.page_id} <- trechos {len(hashes)}: {hashes[0][:12]}...")
     print(path.relative_to(bundle).as_posix())
     return 0

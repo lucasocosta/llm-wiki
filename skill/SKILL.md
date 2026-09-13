@@ -57,4 +57,33 @@ Call the tool through the shell. It prints JSON.
 - Never dump the whole wiki or the machine index into context.
 - Search is lexical: use words that appear in the material, not paraphrases.
 
+## Evidence protocol (ask the wiki like a curator, not a retriever)
+
+Search is lexical, so a paraphrase can slide the ranking to adjacent pages and
+an answer built on the wrong page comes out confidently wrong (the RAG failure
+mode). Guard against it by procedure:
+
+1. **Cite the evidence**: every factual answer names the pages read
+   (`read-page ids`); no page — no claim.
+2. **Empty result is an answer**: an empty `search` result (or results that
+   only partially match) means *the wiki does not answer this*. Say so, list
+   the terms tried, and suggest a term from the material instead of
+   answering from prior knowledge. `search --suggest` lists real vocabulary
+   terms from the index to redirect the query.
+3. **Read whole winners, several of them**, before committing to an answer
+   (never answer from metadata or a snippet alone).
+4. **Qualify, never assert**, when a page reports `stale` values or
+   unverifiable provenance.
+
 For the full command surface, see [reference.md](reference.md).
+
+## Construction notes (from the 2026-09 evaluation)
+
+- Extract Trechos only through `ingest next`. Calling the engine's internal
+  extractor to read many Trechos at once bypasses the per-Trecho budget and is
+  an anti-pattern (ticket 01).
+- A page may derive from several Trechos: repeat `--trecho-hash` to consolidate
+  thematically in one page (ticket 03). Provenance accumulates.
+- A page written with frontmatter `draft: true` may reference pages that do not
+  exist yet; drop the flag (writing the finished content revalidates links).
+  `graph lint` lists pending drafts (ticket 02).

@@ -28,6 +28,10 @@ class CodeScan:
 
     included: list[Path] = field(default_factory=list)
     excluded_count: int = 0
+    # Files matching the allowlist but not decodable as UTF-8 (compiled
+    # artifacts picked up by broad allowlists). Excluded with justification in
+    # the ingest report (ticket 07).
+    excluded_unreadable: int = 0
 
 
 def _matches_allowlist(rel_posix: str, allowlist: list[str]) -> bool:
@@ -48,22 +52,32 @@ def scan_code_source(base: Path, allowlist: list[str]) -> CodeScan:
     """Walk ``base``, partitioning files by the allowlist.
 
     Only files whose path (relative to ``base``) matches the allowlist are
-    included; the rest are counted as excluded.
+    included; the rest are counted as excluded. Cache directories
+    (``__pycache__``) and files that are not UTF-8-decodable (compiled
+    artifacts a broad allowlist might match) are never ingested: the latter
+    are counted in ``excluded_unreadable`` (ticket 07).
     """
     base = Path(base)
     included: list[Path] = []
     excluded = 0
+    excluded_unreadable = 0
     for path in sorted(base.rglob("*")):
         if not path.is_file():
             continue
         rel = path.relative_to(base).as_posix()
-        if ".git" in path.relative_to(base).parts:
+        parts = path.relative_to(base).parts
+        if ".git" in parts or "__pycache__" in parts:
             continue
         if _matches_allowlist(rel, allowlist):
+            try:
+                path.read_text(encoding="utf-8")
+            except (UnicodeDecodeError, OSError):
+                excluded_unreadable += 1
+                continue
             included.append(path)
         else:
             excluded += 1
-    return CodeScan(included=included, excluded_count=excluded)
+    return CodeScan(included=included, excluded_count=excluded, excluded_unreadable=excluded_unreadable)
 
 
 def _qualified_symbols(source: str) -> list[str]:

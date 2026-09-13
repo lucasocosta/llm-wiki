@@ -37,6 +37,12 @@ def register(sub: "argparse._SubParsersAction") -> None:
         action="store_true",
         help="include a snippet of the matched text (off by default)",
     )
+    s.add_argument(
+        "--suggest",
+        action="store_true",
+        help="also suggest vocabulary terms from the index (did-you-mean; "
+        "output becomes {results, suggestions})",
+    )
     s.set_defaults(func=cmd_search)
 
 
@@ -54,8 +60,11 @@ def cmd_search(args: argparse.Namespace, root: Path) -> int:
         type_filter=args.type_filter,
         tags_filter=args.tags,
         snippet=args.snippet,
+        suggest=getattr(args, "suggest", False),
     )
     print(json.dumps(results))
+    from llmwiki.usage import record
+    record(root, "search", len(json.dumps(results)))
     return 0
 
 
@@ -82,4 +91,6 @@ def cmd_read_page(args: argparse.Namespace, root: Path) -> int:
         "stale": stale,
     }
     print(json.dumps(payload, default=str))
+    from llmwiki.usage import record
+    record(root, "read-page", len(json.dumps(payload, default=str)))
     return 0

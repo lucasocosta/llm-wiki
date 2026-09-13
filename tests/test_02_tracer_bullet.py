@@ -27,15 +27,31 @@ def _markdown_source(wiki):
     )
 
 
-def test_manifest_declares_bundle_sources_language_and_a_markdown_source(cli, wiki):
-    _markdown_source(wiki)
-    from llmwiki.manifest import load_manifest
-
-    m = load_manifest(wiki.root)
-    assert m.bundle_dir == "wiki"
-    assert m.sources_dir == "sources"
-    assert m.language == "pt-BR"
-    assert m.sources[0].type == "markdown"
+def test_manifest_declares_bundle_sources_language_and_a_markdown_source(cli, wiki, worker):
+    wiki.write_manifest(
+        bundle_dir="knowledge/pages",
+        sources_dir="reading",
+        language="fr",
+        sources=[{"id": "notes", "type": "markdown", "location": "notes.md"}],
+    )
+    (wiki.root / "reading/notes.md").write_text(
+        "# Concurrency\n\nThe scheduler runs tasks cooperatively.\n", encoding="utf-8"
+    )
+    result = cli("ingest", "next")
+    assert result.exit_code == 0, result.stderr
+    assert result.json["source_id"] == "notes"
+    assert result.json["anchor"] == "Concurrency"
+    assert "The scheduler" in result.json["text"]
+    written = worker(result.json, "concurrency")
+    assert written.exit_code == 0, written.stderr
+    assert (wiki.root / "knowledge/pages/concurrency.md").is_file()
+    assert not (wiki.root / "wiki").exists()
+    index = cli("read-page", "index")
+    assert index.exit_code == 0, index.stderr
+    assert index.json["frontmatter"]["language"] == "fr"
+    mirror = cli("read-page", "references/notes")
+    assert mirror.exit_code == 0, mirror.stderr
+    assert mirror.json["frontmatter"]["source_provenance"]["path"] == "reading/notes.md"
 
 
 def test_ingest_next_delivers_work_item_with_extracted_trecho(cli, wiki):

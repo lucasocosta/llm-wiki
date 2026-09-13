@@ -72,6 +72,22 @@ def broken_links(bundle_root: Path) -> list[dict]:
     return broken
 
 
+def draft_pages(bundle_root: Path) -> list[str]:
+    """Pages flagged ``draft: true`` (pending pages, ticket 02).
+
+    A draft may carry links to pages that do not exist yet (tools accept the
+    write while ``draft: true`` stands); listing drafts lets the curator finish
+    them (`graph lint` also lists them).
+    """
+    bundle_root = Path(bundle_root)
+    out = []
+    for page_file in _iter_concept_pages(bundle_root):
+        page = read_page(page_file, require_type=False)
+        if page.frontmatter.get("draft"):
+            out.append(concept_id_from_path(page_file, bundle_root))
+    return out
+
+
 def long_pages(
     bundle_root: Path, threshold: int = DEFAULT_LONG_PAGE_CHARS
 ) -> list[dict]:
@@ -91,3 +107,11 @@ def long_pages(
                 }
             )
     return out
+
+
+def lint_report(bundle_root: Path, threshold: int = DEFAULT_LONG_PAGE_CHARS) -> dict:
+    """Long-page warnings plus pending draft pages (ticket 02)."""
+    return {
+        "long_pages": long_pages(bundle_root, threshold),
+        "draft_pages": draft_pages(bundle_root),
+    }

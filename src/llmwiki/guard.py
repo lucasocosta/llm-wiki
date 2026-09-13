@@ -96,6 +96,8 @@ def check_write(
     ``old`` is None for a brand-new page (only creation checks apply).
     ``known_ids`` is the set of concept ids that exist (for the "no link to a
     nonexistent id" rule); when None, that rule is skipped.
+    On success, omitted fields of existing ``sources`` entries are restored
+    in ``new`` so ingestion and consolidation preserve the same citation data.
     """
     # Invariant 3 (both modes): every footnote label resolves to a sources id.
     src_ids = set(_source_ids(new))
@@ -106,8 +108,11 @@ def check_write(
                 f"[^{label}] but no sources entry has id {label!r}"
             )
 
-    # Rule: no outgoing link to a nonexistent concept id.
-    if known_ids is not None:
+    # Rule: no outgoing link to a nonexistent concept id. A page flagged
+    # ``draft: true`` is exempt (ticket 02): drafts may reference pages that
+    # still have to be written; the flag must be dropped (and links resolve)
+    # before the page counts as finished.
+    if known_ids is not None and not new.frontmatter.get("draft"):
         for target in _links(new.body):
             cid = resolve_link(page_id, target)
             if cid is None:
@@ -148,6 +153,32 @@ def check_write(
     if mode is Mode.INGESTION:
         _check_ingestion(old, new, max_shrink)
     _check_citations(old, new)
+    _preserve_source_details(old, new)
+
+
+def _preserve_source_details(old: Page, new: Page) -> None:
+    """Restore omitted citation fields; changing recorded values needs a curator."""
+    previous = {
+        str(entry["id"]): entry
+        for entry in old.frontmatter.get("sources", []) or []
+        if isinstance(entry, dict) and "id" in entry
+    }
+    merged = []
+    for entry in new.frontmatter.get("sources", []) or []:
+        if not isinstance(entry, dict) or "id" not in entry:
+            merged.append(entry)
+            continue
+        recorded = previous.get(str(entry["id"]), {})
+        changed = [key for key in recorded if key in entry and entry[key] != recorded[key]]
+        if changed:
+            raise GuardError(
+                f"invariant 1 (sources append-only): entry {entry['id']!r} changes "
+                f"recorded fields {changed}; keep the recorded values or use the "
+                "explicit remove-source-entry command before correcting the citation"
+            )
+        merged.append({**recorded, **entry})
+    if "sources" in new.frontmatter:
+        new.frontmatter["sources"] = merged
 
 
 def _check_ingestion(old: Page, new: Page, max_shrink: float) -> None:

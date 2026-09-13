@@ -89,8 +89,14 @@ def _source_hash_and_relpath(manifest: Manifest, source: Source) -> tuple[str, s
     return digest, rel_path
 
 
-def extract_source(manifest: Manifest, source: Source) -> list[Trecho]:
-    """Keep natural boundaries, subdividing only units above the wiki budget."""
+def _extract_source(manifest: Manifest, source: Source) -> list[Trecho]:
+    """Sanctioned extraction for the ingestion engine only.
+
+    Internal use (queue computation, stamping, code pinning). Workers and
+    skills extract through the CLI (`ingest next`): pulling every Trecho at
+    once bypasses the per-Trecho budget and is an anti-pattern (ticket 01).
+    Module-private: external callers should go through the CLI.
+    """
     return limit_trechos(_extract_natural_source(manifest, source), manifest.max_trecho_chars)
 
 
@@ -122,13 +128,20 @@ def code_base_path(manifest: Manifest, source: Source) -> Path:
 
     External code (declared with a repository + commit) is pinned by SHA and
     read in place, never copied into the repo (ticket 08): its ``location`` is
-    an absolute or repo-relative path to the checkout. Local code lives under
-    the sources directory.
+    an absolute or repo-relative path to the checkout. Local code accepts a
+    repo-relative location (e.g. ``src/llmwiki``) resolved from the manifest
+    root, falling back to a path relative to the sources directory — so a code
+    wiki of the project itself needs no symlink into ``sources/``.
     """
     loc = Path(source.location)
     if source.repository:
         # External: location is a path to the pinned checkout.
         return loc if loc.is_absolute() else (manifest.root / loc).resolve()
+    if loc.is_absolute():
+        return loc.resolve()
+    repo_relative = (manifest.root / loc).resolve()
+    if repo_relative.exists():
+        return repo_relative
     return (manifest.sources_path / source.location).resolve()
 
 
@@ -216,7 +229,7 @@ def compute_queue(manifest: Manifest) -> list[Trecho]:
     for source in manifest.sources:
         if source.type not in INGESTIBLE_TYPES:
             continue
-        for t in extract_source(manifest, source):
+        for t in _extract_source(manifest, source):
             if t.hash not in done:
                 queue.append(t)
     return queue
@@ -248,18 +261,22 @@ def stamp_write(
     page_id: str,
     page: Page,
     source_id: str,
-    trecho_hash: str,
+    trecho_hash: str | list[str],
     now: _dt.date | None = None,
 ) -> Path:
     """Write a worker-authored page, stamping provenance the worker can't forget.
 
     The single stamping path used by every write. Sets ``generated`` (date) and
-    ``generated_by``, appends ``trecho_hash`` to ``trechos`` (deduplicated),
-    records the contributing ``source_id`` (for staleness), then ensures the
-    Source Mirror exists. The caller passes the Trecho hash from the work item;
-    code is revalidated against the delivered hash to identify the contributing
-    files and reject changed external checkouts. Identity (``type``) is the caller's responsibility (spec §28).
+    ``generated_by``, appends each delivered ``trecho_hash`` to ``trechos``
+    (deduplicated; a list also supports thematic consolidation of several
+    Trechos in one page, ticket 03), records the contributing ``source_id``
+    (for staleness), then ensures the Source Mirror exists. The caller passes
+    the Trecho hash(es) from the work item. Every hash must still belong to
+    the declared Source; code records all matching contributing files, even
+    when several files share the same content. Identity (``type``) is the
+    caller's responsibility (spec §28).
     """
+    hashes = [trecho_hash] if isinstance(trecho_hash, str) else list(trecho_hash)
     bundle = manifest.bundle_path
     page_path = bundle / f"{page_id}.md"
     previous = read_page(page_path) if page_path.exists() else None
@@ -270,8 +287,9 @@ def stamp_write(
     page.frontmatter["generated_by"] = GENERATED_BY
 
     existing = list(page.frontmatter.get("trechos", []) or [])
-    if trecho_hash not in existing:
-        existing.append(trecho_hash)
+    for h in hashes:
+        if h not in existing:
+            existing.append(h)
     page.frontmatter["trechos"] = existing
     src_ids = set(page.frontmatter.get("source_ids", []) or [])
     src_ids.add(source_id)
@@ -279,12 +297,18 @@ def stamp_write(
 
     source = manifest.source(source_id)
     src_hash, rel_path = _source_hash_and_relpath(manifest, source)
+    requested = set(hashes)
+    matches = [t for t in _extract_source(manifest, source) if t.hash in requested]
+    missing = requested - {t.hash for t in matches}
+    if missing:
+        raise IngestionError(
+            f"source {source.id!r}: Trecho no longer present or belongs to another Source "
+            f"({len(missing)} of {len(requested)} hashes); request the current work item "
+            "and write each Source separately"
+        )
     versions = dict(page.frontmatter.get("source_versions", {}))
     version = {"type": source.type, "path": rel_path}
     if source.type == "code":
-        matches = [t for t in extract_source(manifest, source) if t.hash == trecho_hash]
-        if not matches:
-            raise IngestionError(f"source {source.id!r}: Trecho is no longer present; request the current work item")
         files = dict(versions.get(source_id, {}).get("files", {}))
         for trecho in matches:
             files[trecho.source_path] = code_file_version(code_base_path(manifest, source) / trecho.source_path)

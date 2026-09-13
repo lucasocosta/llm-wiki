@@ -58,8 +58,8 @@ def cmd_broken_links(args: argparse.Namespace, root: Path) -> int:
 
 
 def cmd_lint(args: argparse.Namespace, root: Path) -> int:
-    from llmwiki.graph import DEFAULT_LONG_PAGE_CHARS, long_pages
+    from llmwiki.graph import DEFAULT_LONG_PAGE_CHARS, lint_report
 
     threshold = args.long_page_chars or DEFAULT_LONG_PAGE_CHARS
-    print(json.dumps({"long_pages": long_pages(_bundle(root), threshold)}))
+    print(json.dumps(lint_report(_bundle(root), threshold)))
     return 0

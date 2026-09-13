@@ -29,9 +29,11 @@ from llmwiki.okf.page import RESERVED_FILES, concept_id_from_path, read_page
 
 INDEX_DIR = ".llmwiki"
 INDEX_FILE = "search-index.json"
+INDEX_VERSION = 2  # 2: frontmatter aliases join the index (ticket 11)
 
-# Field weights (spec: title/description/tags weigh more than body).
-_WEIGHTS = {"title": 5.0, "description": 3.0, "tags": 3.0, "body": 1.0}
+# Field weights (spec: title/description/tags weigh more than body; aliases Of
+# paraphrases weigh like description — ticket 11).
+_WEIGHTS = {"title": 5.0, "description": 3.0, "tags": 3.0, "aliases": 3.0, "body": 1.0}
 
 _TOKEN_RE = re.compile(r"\w+", re.UNICODE)
 
@@ -71,15 +73,21 @@ def _fingerprint(bundle_root: Path) -> str:
 
 def _field_texts(page) -> dict[str, str]:
     fm = page.frontmatter
-    tags = fm.get("tags", []) or []
-    if isinstance(tags, str):
-        tags = [tags]
+    tags = _as_list(fm.get("tags", []))
+    aliases = _as_list(fm.get("aliases", []))
     return {
         "title": str(fm.get("title", "")),
         "description": str(fm.get("description", "")),
         "tags": " ".join(str(t) for t in tags),
+        "aliases": " ".join(str(a) for a in aliases),
         "body": page.body or "",
     }
+
+
+def _as_list(value) -> list:
+    if isinstance(value, str):
+        return [value]
+    return [v for v in (value or []) if v is not None]
 
 
 def build_index(bundle_root: Path) -> dict:
@@ -99,9 +107,7 @@ def build_index(bundle_root: Path) -> dict:
                 weighted_tf[tok] += w
         for tok in set(weighted_tf):
             df[tok] += 1
-        tags = page.frontmatter.get("tags", []) or []
-        if isinstance(tags, str):
-            tags = [tags]
+        tags = _as_list(page.frontmatter.get("tags", []))
         docs.append(
             {
                 "id": cid,
@@ -114,6 +120,7 @@ def build_index(bundle_root: Path) -> dict:
             }
         )
     return {
+        "index_version": INDEX_VERSION,
         "fingerprint": _fingerprint(bundle_root),
         "n_docs": len(docs),
         "df": dict(df),
@@ -129,7 +136,7 @@ def _load_or_build(bundle_root: Path) -> dict:
     if path.exists():
         try:
             cached = json.loads(path.read_text(encoding="utf-8"))
-            if cached.get("fingerprint") == current_fp:
+            if cached.get("index_version", 1) == INDEX_VERSION and cached.get("fingerprint") == current_fp:
                 return cached
         except (json.JSONDecodeError, OSError):
             pass
@@ -167,6 +174,27 @@ def _make_snippet(body: str, query_tokens: list[str], width: int = 160) -> str:
     return snippet
 
 
+def _suggestions(index: dict, query_tokens: list[str], n: int = 5) -> list[str]:
+    """did-you-mean: real vocabulary tokens closest to the query (ticket 11).
+
+    Off-model by construction: candidates come from the index vocabulary
+    (``df``), scored by difflib similarity — frequent terms first on ties.
+    """
+    import difflib
+
+    vocab = sorted(index.get("df", {}))
+    scored: dict[str, float] = {}
+    for qtok in query_tokens:
+        for vtok in difflib.get_close_matches(qtok, vocab, n=n * 2, cutoff=0.6):
+            sim = difflib.SequenceMatcher(None, qtok, vtok).ratio()
+            # Frequency breaks ties so frequent words rise.
+            score = sim * (1.0 + 0.01 * index["df"].get(vtok, 0))
+            if vtok not in scored or scored[vtok] < sim:
+                scored[vtok] = sim
+    ranked = sorted(scored.items(), key=lambda kv: (-kv[1], kv[0]))
+    return [tok for tok, _ in ranked[:n]]
+
+
 def search_index(
     bundle_root: Path,
     *,
@@ -175,12 +203,18 @@ def search_index(
     type_filter: str | None = None,
     tags_filter: list[str] | None = None,
     snippet: bool = False,
-) -> list[dict]:
+    suggest: bool = False,
+) -> list[dict] | dict:
     """Rank pages by lexical relevance to ``query`` and return metadata winners.
 
     Filters by ``type`` and ``tags`` when given. The payload never includes the
     body; a matched snippet is included only when ``snippet`` is True. Ties are
     broken by id for a deterministic order over fixtures.
+
+    With ``suggest=True`` the return shape changes to
+    ``{"results": [...], "suggestions": [...]}`` — vocabulary terms from the
+    index, closest to the query tokens (did-you-mean, ticket 11). Without the
+    flag the shape is the plain list, unchanged.
     """
     index = _load_or_build(bundle_root)
     query_tokens = _tokenize(query)
@@ -214,4 +248,6 @@ def search_index(
         if snippet:
             payload["snippet"] = _make_snippet(doc["body"], query_tokens)
         results.append(payload)
+    if suggest:
+        return {"results": results, "suggestions": _suggestions(index, query_tokens)}
     return results

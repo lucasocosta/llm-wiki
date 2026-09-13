@@ -132,7 +132,17 @@ def parse_page(text: str, *, require_type: bool = True) -> Page:
     after = rest[end + len("\n" + _FRONTMATTER_DELIM):]
     if after.startswith("\n"):
         after = after[1:]
-    loaded = yaml.safe_load(fm_text) if fm_text.strip() else {}
+    try:
+        loaded = yaml.safe_load(fm_text) if fm_text.strip() else {}
+    except yaml.YAMLError as exc:
+        # Report cause + remedy, not the PyYAML stack (ticket 04). The two
+        # failures seen most: a bare ':' inside the value, and a tab indent.
+        mark = getattr(exc, "problem_mark", None)
+        line = mark.line + 1 if mark is not None else None
+        hint = "quote the value (title: \"...\") when it contains ':'"
+        detail = str(getattr(exc, "problem", None) or exc)
+        pos = f"line {line}" if line else "frontmatter"
+        raise PageError(f"invalid frontmatter YAML ({pos}): {detail}; {hint}") from exc
     if loaded is None:
         loaded = {}
     if not isinstance(loaded, dict):
