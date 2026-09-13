@@ -20,12 +20,19 @@ from typing import Any
 import yaml
 
 MANIFEST_NAME = "llm-wiki.yml"
+DEFAULT_MAX_TRECHO_CHARS = 12000
 
 _VALID_SOURCE_TYPES = {"text", "pdf", "markdown", "code"}
 
 
 class ManifestError(Exception):
     pass
+
+
+def validate_trecho_budget(value: int) -> int:
+    if isinstance(value, bool) or not isinstance(value, int) or value < 1:
+        raise ManifestError("max_trecho_chars must be a positive integer (Unicode characters)")
+    return value
 
 
 @dataclass
@@ -47,6 +54,7 @@ class Manifest:
     language: str
     sources: list[Source] = field(default_factory=list)
     root: Path = field(default=Path("."))
+    max_trecho_chars: int = DEFAULT_MAX_TRECHO_CHARS
 
     @property
     def bundle_path(self) -> Path:
@@ -107,4 +115,5 @@ def load_manifest(root: str | Path) -> Manifest:
         language=data["language"],
         sources=sources,
         root=root,
+        max_trecho_chars=validate_trecho_budget(data.get("max_trecho_chars", DEFAULT_MAX_TRECHO_CHARS)),
     )

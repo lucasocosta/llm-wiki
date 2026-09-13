@@ -42,3 +42,6 @@ Thumbs.db
 #   research/      a pesquisa que fundamenta as decisões.
 #   docs/          ADRs.
 #   uv.lock        dependências pinadas de uma aplicação devem ser versionadas.
+
+# Serena
+.serena/

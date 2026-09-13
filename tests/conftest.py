@@ -10,12 +10,23 @@ mocked anywhere in the suite because the CLI never calls one.
 from __future__ import annotations
 
 import textwrap
+import subprocess
 from pathlib import Path
 
 import pytest
 import yaml
 
 from llmwiki.cli import CliResult, run
+
+
+@pytest.fixture
+def git():
+    def invoke(root, *args):
+        return subprocess.run(
+            ["git", "-c", "user.name=Wiki tests", "-c", "user.email=tests@example.invalid", *args],
+            cwd=root, check=True, capture_output=True, text=True,
+        ).stdout.strip()
+    return invoke
 
 
 @pytest.fixture
@@ -32,6 +43,18 @@ def cli(tmp_path: Path):
 def wiki(tmp_path: Path):
     """A helper for constructing a temporary Bundle + manifest + sources."""
     return WikiFixture(tmp_path)
+
+
+@pytest.fixture
+def worker(cli, tmp_path):
+    """Write a worker draft through the public CLI, using a delivered item."""
+    def write(item, page_id, *, body="# Example\n\nPreserved knowledge.\n", metadata=None):
+        draft = tmp_path / "worker-draft.md"
+        draft.write_text("---\n" + yaml.safe_dump({"type": "Topic", **(metadata or {})}) + "---\n" + body)
+        return cli("ingest", "write-page", "--page-id", page_id,
+                   "--source-id", item["source_id"], "--trecho-hash", item["trecho_hash"],
+                   "--content-file", str(draft))
+    return write
 
 
 class WikiFixture:

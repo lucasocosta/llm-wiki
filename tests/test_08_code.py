@@ -59,61 +59,33 @@ def test_anchor_is_qualified_symbol_not_line_number(cli, wiki):
     assert all(not a.startswith("line:") for a in anchors)
 
 
-def test_source_mirror_stores_commit_sha(cli, wiki, tmp_path):
+def test_source_mirror_stores_commit_sha(cli, wiki, worker, git):
     _code_tree(wiki)
-    wiki.write_manifest(
-        sources=[
-            {
-                "id": "proj",
-                "type": "code",
-                "location": "proj",
-                "allowlist": ["app"],
-                "commit": "abc123def456",
-            }
-        ]
-    )
-    item = cli("ingest", "next").json
-    cf = tmp_path / "p.md"
-    cf.write_text("---\ntype: Topic\ntitle: Run\n---\n\nbody\n", encoding="utf-8")
-    r = cli(
-        "ingest", "write-page",
-        "--page-id", "run",
-        "--source-id", item["source_id"],
-        "--trecho-hash", item["trecho_hash"],
-        "--anchor", item["anchor"],
-        "--content-file", str(cf),
-    )
-    assert r.exit_code == 0, r.stderr
-    from llmwiki.okf.page import read_page
-
-    ref = read_page(wiki.page_path("references/proj.md"))
-    prov = ref.frontmatter["source_provenance"]
+    wiki.write_manifest(sources=[{"id": "proj", "type": "code", "location": "proj", "allowlist": ["app"]}])
+    git(wiki.root, "init", "-q")
+    git(wiki.root, "add", "sources")
+    git(wiki.root, "commit", "-qm", "Initial source")
+    sha = git(wiki.root, "rev-parse", "HEAD")
+    assert worker(cli("ingest", "next").json, "run").exit_code == 0
+    prov = cli("read-page", "references/proj").json["frontmatter"]["source_provenance"]
     assert prov["source_type"] == "code"
-    assert prov["commit"] == "abc123def456"
+    assert {v["commit"] for v in prov["files"].values()} == {sha}
 
 
-def test_external_code_pinned_by_sha_not_copied(cli, wiki, tmp_path):
-    # External checkout lives outside the repo; the manifest points at it with a
-    # commit. Nothing is copied into the bundle or the sources dir.
+def test_external_code_pinned_by_sha_not_copied(cli, wiki, tmp_path, git):
     external = tmp_path / "external_repo"
     (external / "pkg").mkdir(parents=True)
-    (external / "pkg" / "mod.py").write_text("def entry():\n    return 0\n", encoding="utf-8")
-
-    wiki.write_manifest(
-        sources=[
-            {
-                "id": "ext",
-                "type": "code",
-                "location": str(external),
-                "allowlist": ["pkg"],
-                "repository": "https://example.com/ext.git",
-                "commit": "deadbeef",
-            }
-        ]
-    )
-    items = cli("ingest", "queue").json
-    assert len(items) == 1
-    assert items[0]["anchor"] == "symbol:entry"
-    # The external code was not copied into sources/ or wiki/.
-    assert not (wiki.sources / "ext").exists()
-    assert not (wiki.bundle / "pkg").exists()
+    (external / "pkg/mod.py").write_text("def entry():\n    return 0\n")
+    git(external, "init", "-q")
+    git(external, "add", "pkg")
+    git(external, "commit", "-qm", "Pinned source")
+    wiki.write_manifest(sources=[{
+        "id": "ext", "type": "code", "location": str(external), "allowlist": ["pkg"],
+        "repository": str(external), "commit": git(external, "rev-parse", "HEAD"),
+    }])
+    result = cli("ingest", "queue")
+    assert result.exit_code == 0, result.stderr
+    assert len(result.json) == 1
+    assert result.json[0]["anchor"] == "symbol:entry"
+    assert not list(wiki.sources.iterdir())
+    assert not list(wiki.bundle.iterdir())

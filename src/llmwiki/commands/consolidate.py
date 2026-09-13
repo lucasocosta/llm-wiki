@@ -81,7 +81,9 @@ def cmd_consolidate_write(args: argparse.Namespace, root: Path) -> int:
         if key in old_page.frontmatter and key not in new_page.frontmatter:
             new_page.frontmatter[key] = old_page.frontmatter[key]
 
-    from llmwiki.ingestion import known_concept_ids
+    from llmwiki.ingestion import known_concept_ids, preserve_contributions
+
+    preserve_contributions(new_page, old_page)
 
     known = known_concept_ids(bundle)
     known.add(args.page_id)

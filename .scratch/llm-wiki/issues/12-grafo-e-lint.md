@@ -4,10 +4,10 @@
 
 **Blocked by:** 02.
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Listar os backlinks de uma página
-- [ ] Relatório de órfãos: página sem nenhuma aresta de entrada, excluídos os `index.md`
-- [ ] Relatório de links quebrados
-- [ ] Aviso de página que passou do tamanho configurável, com os cabeçalhos dela na saída para sugerir onde cortar
-- [ ] Página longa é avisada, nunca recusada
+- [x] Listar os backlinks de uma página
+- [x] Relatório de órfãos: página sem nenhuma aresta de entrada, excluídos os `index.md`
+- [x] Relatório de links quebrados
+- [x] Aviso de página que passou do tamanho configurável, com os cabeçalhos dela na saída para sugerir onde cortar
+- [x] Página longa é avisada, nunca recusada

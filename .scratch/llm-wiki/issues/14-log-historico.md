@@ -4,9 +4,13 @@
 
 **Blocked by:** 02.
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Registro cronológico com cabeçalhos de data ISO, mais novo primeiro
-- [ ] Parseável por ferramentas unix comuns
-- [ ] Apagar o arquivo não afeta a fila, a sujeira nem a obsolescência
-- [ ] É arquivo reservado do OKF e não é tratado como concept
+- [x] Registro cronológico com cabeçalhos de data ISO, mais novo primeiro
+- [x] Parseável por ferramentas unix comuns
+- [x] Apagar o arquivo não afeta a fila, a sujeira nem a obsolescência
+- [x] É arquivo reservado do OKF e não é tratado como concept
+
+## Comments
+
+- 2026-09-12 — Acompanhamento do review de `75597d6...4eb32c1`. O teste de ordenação do histórico chama a implementação diretamente, contrariando o seam único da CLI. Adequação em [23 — testes pelo contrato da CLI](23-testes-pelo-contrato-cli.md). Este achado de validação não demonstrou falha nos critérios funcionais deste ticket, que permanecem marcados.

@@ -1,130 +1,88 @@
-"""Ticket 01: OKF foundation — page read/write, ordered frontmatter, index.md §8."""
-
-from __future__ import annotations
-
-from pathlib import Path
-
-import pytest
-
-from llmwiki.okf import (
-    Page,
-    PageError,
-    concept_id_from_path,
-    parse_page,
-    read_page,
-    render_page,
-    write_page,
-)
-from llmwiki.okf.index import generate_index_files
+"""Ticket 01: OKF behavior observed through the CLI and persisted files."""
 
 
-def test_page_round_trips_without_loss(tmp_path: Path):
-    page = Page(
-        frontmatter={
-            "type": "Topic",
-            "id": "concurrency",
-            "title": "Concurrency",
-            "description": "How the system schedules work.",
-            "tags": ["runtime", "scheduling"],
-        },
-        body="# Concurrency\n\nBody text.\n",
-    )
-    path = tmp_path / "concurrency.md"
-    write_page(path, page)
-    back = read_page(path)
-    assert back.frontmatter == page.frontmatter
-    assert back.body.strip() == page.body.strip()
+def _source(cli, wiki):
+    wiki.write_manifest(sources=[{"id": "notes", "type": "markdown", "location": "notes.md"}])
+    wiki.write_source("notes.md", "# Knowledge\n\nEnough information for one useful Trecho.\n")
+    return cli("ingest", "next").json
 
 
-def test_frontmatter_keys_always_same_order():
-    # Same logical content, different insertion order → identical output.
-    a = Page(frontmatter={"title": "T", "type": "Topic", "id": "x"}, body="b")
-    b = Page(frontmatter={"id": "x", "type": "Topic", "title": "T"}, body="b")
-    assert render_page(a) == render_page(b)
-    # And the canonical order puts id, type, title in that order.
-    text = render_page(a)
-    assert text.index("id:") < text.index("type:") < text.index("title:")
+def test_page_round_trips_without_loss(cli, wiki, worker):
+    item = _source(cli, wiki)
+    metadata = {"title": "Concurrency", "description": "How work is scheduled.",
+                "tags": ["runtime", "scheduling"], "extension": {"unknown": "preserved"}}
+    body = "# Concurrency\n\nBody text.\n"
+    for _ in range(2):
+        result = worker(item, "concurrency", metadata=metadata, body=body)
+        assert result.exit_code == 0, result.stderr
+        page = cli("read-page", "concurrency").json
+        assert page["body"].strip() == body.strip()
+        for key, value in metadata.items():
+            assert page["frontmatter"][key] == value
 
 
-def test_page_without_type_is_rejected_on_write(tmp_path: Path):
-    page = Page(frontmatter={"id": "x", "title": "No type"}, body="b")
-    with pytest.raises(PageError):
-        render_page(page)
-    with pytest.raises(PageError):
-        write_page(tmp_path / "x.md", page)
+def test_frontmatter_keys_always_same_order(cli, wiki, tmp_path):
+    item = _source(cli, wiki)
+    draft = tmp_path / "draft.md"
+    outputs = []
+    for fields in ("title: T\ntype: Topic\nid: x", "id: x\ntype: Topic\ntitle: T"):
+        draft.write_text("---\n" + fields + "\n---\nBody.\n")
+        result = cli("ingest", "write-page", "--page-id", "x", "--source-id", item["source_id"],
+                     "--trecho-hash", item["trecho_hash"], "--content-file", str(draft))
+        assert result.exit_code == 0, result.stderr
+        outputs.append((wiki.bundle / "x.md").read_text())
+    assert outputs[0] == outputs[1]
+    assert outputs[0].index("id:") < outputs[0].index("type:") < outputs[0].index("title:")
 
 
-def test_page_without_type_is_rejected_on_read():
-    text = "---\nid: x\ntitle: No type\n---\n\nbody\n"
-    with pytest.raises(PageError):
-        parse_page(text)
+def test_page_without_type_is_rejected_on_write(cli, wiki, tmp_path):
+    item = _source(cli, wiki)
+    draft = tmp_path / "draft.md"
+    draft.write_text("---\ntitle: Missing type\n---\nBody.\n")
+    result = cli("ingest", "write-page", "--page-id", "x", "--source-id", item["source_id"],
+                 "--trecho-hash", item["trecho_hash"], "--content-file", str(draft))
+    assert result.exit_code != 0 and "type" in result.stderr
+    assert not (wiki.bundle / "x.md").exists()
 
 
-def test_concept_id_from_path(tmp_path: Path):
-    bundle = tmp_path / "wiki"
-    (bundle / "references").mkdir(parents=True)
-    p = bundle / "references" / "notes-md.md"
-    p.write_text("x", encoding="utf-8")
-    assert concept_id_from_path(p, bundle) == "references/notes-md"
-    top = bundle / "concurrency.md"
-    top.write_text("x", encoding="utf-8")
-    assert concept_id_from_path(top, bundle) == "concurrency"
+def test_concept_id_derived_from_relative_path(cli, wiki):
+    wiki.write_manifest()
+    (wiki.bundle / "references").mkdir()
+    for relative in ("references/notes-md", "concurrency"):
+        (wiki.bundle / f"{relative}.md").write_text("---\ntype: Topic\ntitle: Needle\n---\nKnowledge.\n")
+    assert {hit["id"] for hit in cli("search", "Needle").json} == {"references/notes-md", "concurrency"}
 
 
-def test_index_md_follows_section_8(tmp_path: Path):
-    bundle = tmp_path / "wiki"
-    (bundle / "references").mkdir(parents=True)
-    write_page(
-        bundle / "concurrency.md",
-        Page(
-            frontmatter={"type": "Topic", "title": "Concurrency", "description": "Sched."},
-            body="body",
-        ),
-    )
-    write_page(
-        bundle / "references" / "paper.md",
-        Page(
-            frontmatter={"type": "Reference", "title": "Paper", "description": "A PDF."},
-            body="body",
-        ),
-    )
-    generate_index_files(bundle, language="pt-BR")
-
-    root_index = (bundle / "index.md").read_text(encoding="utf-8")
-    # Root index carries frontmatter with okf_version and language.
-    assert root_index.startswith("---")
-    assert "okf_version:" in root_index
-    assert "language: pt-BR" in root_index
-    # Body is bullets of title + link + description.
-    assert "- [Concurrency](concurrency.md) — Sched." in root_index
-    assert "- [references](references/index.md)" in root_index
-
-    # Nested index has no frontmatter (§8).
-    nested = (bundle / "references" / "index.md").read_text(encoding="utf-8")
+def test_index_md_section8_shape(cli, wiki):
+    wiki.write_manifest()
+    (wiki.bundle / "references").mkdir()
+    (wiki.bundle / "concurrency.md").write_text("---\ntype: Topic\ntitle: Concurrency\ndescription: Sched.\n---\nBody.\n")
+    (wiki.bundle / "references/paper.md").write_text("---\ntype: Reference\ntitle: Paper\ndescription: PDF.\n---\nBody.\n")
+    result = cli("regenerate-index")
+    assert result.exit_code == 0, result.stderr
+    root = (wiki.bundle / "index.md").read_text()
+    assert root.startswith("---") and "okf_version:" in root and "language: pt-BR" in root
+    assert "- [Concurrency](concurrency.md) — Sched." in root
+    assert "- [references](references/index.md)" in root
+    nested = (wiki.bundle / "references/index.md").read_text()
     assert not nested.startswith("---")
-    assert "- [Paper](paper.md) — A PDF." in nested
+    assert "- [Paper](paper.md) — PDF." in nested
 
 
-def test_directory_description_composed_without_network(tmp_path: Path):
-    # The default describer is deterministic; the whole suite runs offline.
-    bundle = tmp_path / "wiki"
-    (bundle / "references").mkdir(parents=True)
-    write_page(
-        bundle / "references" / "paper.md",
-        Page(frontmatter={"type": "Reference", "title": "Paper"}, body="b"),
-    )
-    generate_index_files(bundle, language="pt-BR")
-    root_index = (bundle / "index.md").read_text(encoding="utf-8")
-    # The directory line has a composed description ending in item count.
-    assert "- [references](references/index.md) — references: 1 item." in root_index
+def test_directory_description_composed_without_network(cli, wiki):
+    wiki.write_manifest()
+    (wiki.bundle / "references").mkdir()
+    (wiki.bundle / "references/paper.md").write_text("---\ntype: Reference\ntitle: Paper\n---\nBody.\n")
+    assert cli("regenerate-index").exit_code == 0
+    root = (wiki.bundle / "index.md").read_text()
+    assert "- [references](references/index.md) — references: 1 item." in root
+    assert cli("regenerate-index").exit_code == 0
+    assert (wiki.bundle / "index.md").read_text() == root
 
 
 def test_regenerate_index_command(cli, wiki):
     wiki.write_manifest()
-    write_page(
-        wiki.page_path("topic.md"),
-        Page(frontmatter={"type": "Topic", "title": "T", "description": "D"}, body="b"),
-    )
+    (wiki.bundle / "topic.md").write_text("---\ntype: Topic\ntitle: T\ndescription: D\n---\nBody.\n")
     result = cli("regenerate-index")
     assert result.exit_code == 0, result.stderr
     assert "index.md" in result.stdout

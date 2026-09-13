@@ -14,9 +14,11 @@ from __future__ import annotations
 
 import argparse
 import re
+import posixpath
 from pathlib import Path
 
 from llmwiki.commands import CommandError
+from llmwiki.links import resolve_link
 from llmwiki.manifest import ManifestError, load_manifest
 from llmwiki.okf.index import generate_index_files
 from llmwiki.okf.page import (
@@ -81,40 +83,34 @@ def cmd_remove_source_entry(args: argparse.Namespace, root: Path) -> int:
     return 0
 
 
-def _rewrite_links(bundle_root: Path, from_id: str, to_id: str) -> None:
-    """Rewrite every relative link that resolves to ``from_id`` to point at ``to_id``."""
-    import posixpath
-
+def _move_and_rewrite_links(bundle_root: Path, from_id: str, to_id: str) -> None:
+    """Resolve links at their old locations before writing the moved Bundle."""
+    updates = []
     for page_file in sorted(bundle_root.rglob("*.md")):
         if page_file.name in RESERVED_FILES:
             continue
-        cid = concept_id_from_path(page_file, bundle_root)
         page = read_page(page_file, require_type=False)
-        body = page.body or ""
+        old_id = concept_id_from_path(page_file, bundle_root)
+        new_id = to_id if old_id == from_id else old_id
 
-        def repl(m: re.Match) -> str:
-            pre, target, post = m.group(1), m.group(2), m.group(3)
-            frag = ""
-            base = target
-            if "#" in target:
-                base, frag = target.split("#", 1)
-                frag = "#" + frag
-            if not base.endswith(".md") or base.startswith(("http://", "https://", "/")):
-                return m.group(0)
-            page_dir = posixpath.dirname(cid)
-            resolved = posixpath.normpath(posixpath.join(page_dir, base))
-            if resolved.endswith(".md"):
-                resolved = resolved[: -len(".md")]
-            if resolved != from_id:
-                return m.group(0)
-            # Compute a new relative link from this page to to_id.
-            new_rel = posixpath.relpath(f"{to_id}.md", page_dir or ".")
-            return f"{pre}{new_rel}{frag}{post}"
+        def rewrite(match):
+            target = match.group(2)
+            resolved = resolve_link(old_id, target)
+            if resolved is None or (old_id == new_id and resolved != from_id):
+                return match.group(0)
+            destination = to_id if resolved == from_id else resolved
+            relative = posixpath.relpath(f"{destination}.md", posixpath.dirname(new_id) or ".")
+            fragment = "#" + target.split("#", 1)[1] if "#" in target else ""
+            return f"{match.group(1)}{relative}{fragment}{match.group(3)}"
 
-        new_body = _LINK_RE.sub(repl, body)
-        if new_body != body:
-            page.body = new_body
-            write_page(page_file, page)
+        body = _LINK_RE.sub(rewrite, page.body)
+        if body != page.body or old_id != new_id:
+            page.body = body
+            if old_id != new_id:
+                page.frontmatter["id"] = new_id
+            updates.append((bundle_root / f"{new_id}.md", page))
+    for destination, page in updates:
+        write_page(destination, page)
 
 
 def cmd_move_page(args: argparse.Namespace, root: Path) -> int:
@@ -127,13 +123,9 @@ def cmd_move_page(args: argparse.Namespace, root: Path) -> int:
     if dst.exists():
         raise CommandError(f"destination already exists: {args.to_id}", exit_code=2)
 
-    page = read_page(src, require_type=False)
-    page.frontmatter["id"] = args.to_id
-    dst.parent.mkdir(parents=True, exist_ok=True)
-    write_page(dst, page)
+    _move_and_rewrite_links(bundle, args.from_id, args.to_id)
     src.unlink()
 
-    _rewrite_links(bundle, args.from_id, args.to_id)
     generate_index_files(bundle, language=manifest.language)
     from llmwiki.log import append_log
 

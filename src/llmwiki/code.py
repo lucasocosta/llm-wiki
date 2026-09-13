@@ -16,7 +16,6 @@ from __future__ import annotations
 
 import ast
 import fnmatch
-import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -58,6 +57,8 @@ def scan_code_source(base: Path, allowlist: list[str]) -> CodeScan:
         if not path.is_file():
             continue
         rel = path.relative_to(base).as_posix()
+        if ".git" in path.relative_to(base).parts:
+            continue
         if _matches_allowlist(rel, allowlist):
             included.append(path)
         else:
@@ -83,22 +84,6 @@ def _qualified_symbols(source: str) -> list[str]:
 
     visit(tree, prefix="")
     return names
-
-
-def _git_commit_for_file(path: Path) -> str | None:
-    """The last commit SHA that touched ``path``, or None if not in a repo."""
-    try:
-        out = subprocess.run(
-            ["git", "log", "-1", "--format=%H", "--", str(path.name)],
-            cwd=str(path.parent),
-            capture_output=True,
-            text=True,
-            check=False,
-        )
-    except (OSError, FileNotFoundError):
-        return None
-    sha = out.stdout.strip()
-    return sha or None
 
 
 def extract_code_file(source_id: str, path: Path, index: int) -> Trecho:

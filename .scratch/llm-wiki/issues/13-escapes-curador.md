@@ -4,10 +4,16 @@
 
 **Blocked by:** 04, 12.
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Remover uma entrada de `sources` por comando explícito
-- [ ] Mover ou renomear uma página por comando explícito, atualizando quem aponta para ela na mesma operação
-- [ ] Depois de mover, o relatório de links quebrados sai vazio
-- [ ] Nenhum dos dois comandos é alcançável pelo trabalhador
-- [ ] Depois de qualquer dos dois, a guarda continua aplicando as seis invariantes às escritas comuns
+- [x] Remover uma entrada de `sources` por comando explícito
+- [x] Mover ou renomear uma página por comando explícito, atualizando quem aponta para ela na mesma operação
+- [x] Depois de mover, o relatório de links quebrados sai vazio
+- [x] Nenhum dos dois comandos é alcançável pelo trabalhador
+- [x] Depois de qualquer dos dois, a guarda continua aplicando as seis invariantes às escritas comuns
+
+## Comments
+
+- 2026-09-12 — Reaberto após review de `75597d6...4eb32c1`. Mover entre diretórios não recalcula os links de saída da página movida. Correção e regressão em [21 — preservar links ao mover](21-preservar-links-ao-mover.md), que também trata a possível duplicação da resolução de destinos apontada no eixo Standards.
+
+- 2026-09-12 — Concluído. Issue 21 corrigiu links de saída ao mover entre diretórios; backlinks, fragmentos e relatório de links quebrados validados pela CLI.

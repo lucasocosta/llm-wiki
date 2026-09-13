@@ -38,6 +38,7 @@ def ensure_reference(
     source_text: str | None = None,
     source_hash: str | None = None,
     commit: str | None = None,
+    version: dict | None = None,
 ) -> Path:
     """Create or update the Source Mirror for a Source. Returns its path.
 
@@ -59,9 +60,16 @@ def ensure_reference(
     }
     if commit is not None:
         provenance["commit"] = commit
+    if version is not None:
+        provenance.update(version)
+        if "files" in version:
+            provenance.pop("content_hash", None)
 
     if path.exists():
         page = read_page(path)
+        if "files" in provenance:
+            prior = page.frontmatter.get("source_provenance", {}).get("files", {})
+            provenance["files"] = {**prior, **provenance["files"]}
     else:
         page = Page(frontmatter={}, body="")
     page.frontmatter["type"] = "Reference"

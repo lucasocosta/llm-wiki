@@ -4,11 +4,11 @@
 
 **Blocked by:** 03, 05.
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] O item de trabalho traz o Trecho extraído e uma shortlist ranqueada de conceitos vizinhos
-- [ ] A shortlist tem tamanho limitado; o índice inteiro nunca é entregue
-- [ ] O trabalhador dispõe de buscar, ler página e gravar página, e de mais nada
-- [ ] O trabalhador não alcança nenhum comando de curador
-- [ ] Um segundo Trecho sobre o mesmo conceito encontra o id existente pela shortlist
-- [ ] O conteúdo da shortlist é verificável sobre fixtures conhecidas
+- [x] O item de trabalho traz o Trecho extraído e uma shortlist ranqueada de conceitos vizinhos
+- [x] A shortlist tem tamanho limitado; o índice inteiro nunca é entregue
+- [x] O trabalhador dispõe de buscar, ler página e gravar página, e de mais nada
+- [x] O trabalhador não alcança nenhum comando de curador
+- [x] Um segundo Trecho sobre o mesmo conceito encontra o id existente pela shortlist
+- [x] O conteúdo da shortlist é verificável sobre fixtures conhecidas

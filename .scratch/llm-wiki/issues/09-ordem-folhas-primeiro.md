@@ -4,9 +4,9 @@
 
 **Blocked by:** 08.
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] A fila de uma Fonte de código sai ordenada das folhas para a raiz
-- [ ] Ciclo de imports não trava a ordenação nem duplica item na fila
-- [ ] Um módulo de alto nível encontra na shortlist os conceitos dos módulos que importa
-- [ ] Arquivo sem import algum aparece antes de qualquer arquivo que o importe
+- [x] A fila de uma Fonte de código sai ordenada das folhas para a raiz
+- [x] Ciclo de imports não trava a ordenação nem duplica item na fila
+- [x] Um módulo de alto nível encontra na shortlist os conceitos dos módulos que importa
+- [x] Arquivo sem import algum aparece antes de qualquer arquivo que o importe

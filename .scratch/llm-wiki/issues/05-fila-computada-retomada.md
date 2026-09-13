@@ -4,10 +4,16 @@
 
 **Blocked by:** 02.
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] A fila é derivada da comparação Fontes/wiki, sem arquivo de estado versionado
-- [ ] Uma ingestão interrompida retoma sem reprocessar o que já foi feito
-- [ ] O item em voo no momento da interrupção volta para a fila
-- [ ] Retomar em outra máquina, a partir de um clone, produz a mesma fila
-- [ ] Duas pessoas ingerindo em paralelo não produzem conflito em arquivo de estado
+- [x] A fila é derivada da comparação Fontes/wiki, sem arquivo de estado versionado
+- [x] Uma ingestão interrompida retoma sem reprocessar o que já foi feito
+- [x] O item em voo no momento da interrupção volta para a fila
+- [x] Retomar em outra máquina, a partir de um clone, produz a mesma fila
+- [x] Duas pessoas ingerindo em paralelo não produzem conflito em arquivo de estado
+
+## Comments
+
+- 2026-09-12 — Reaberto após review de `75597d6...4eb32c1`. Augmentar a mesma página sem repetir metadados automáticos apaga o carimbo anterior e devolve um Trecho concluído à fila. Correção e reprodução em [16 — preservar carimbos](16-preservar-carimbos-augmentacao.md).
+
+- 2026-09-12 — Concluído. Regressões da issue 16 e testes de retomada passaram; Trechos concluídos não retornam à fila após augmentar a mesma página.

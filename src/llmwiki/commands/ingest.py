@@ -24,7 +24,7 @@ from llmwiki.ingestion import (
     stamp_write,
 )
 from llmwiki.log import append_log
-from llmwiki.manifest import ManifestError, load_manifest
+from llmwiki.manifest import ManifestError, load_manifest, validate_trecho_budget
 from llmwiki.okf.index import generate_index_files
 from llmwiki.okf.page import PageError, Page, parse_page, read_page
 
@@ -55,17 +55,23 @@ def register(sub: "argparse._SubParsersAction") -> None:
         required=True,
     )
     w.set_defaults(func=cmd_write_page)
+    for command in (n, q, w):
+        command.add_argument("--max-trecho-chars", type=int, help="override the manifest's Unicode character budget per Trecho")
 
 
-def _load(root: Path):
+def _load(root: Path, args: argparse.Namespace):
     try:
-        return load_manifest(root)
+        manifest = load_manifest(root)
+        override = getattr(args, "max_trecho_chars", None)
+        if override is not None:
+            manifest.max_trecho_chars = validate_trecho_budget(override)
+        return manifest
     except ManifestError as exc:
         raise CommandError(str(exc))
 
 
 def cmd_next(args: argparse.Namespace, root: Path) -> int:
-    manifest = _load(root)
+    manifest = _load(root, args)
     try:
         item = next_work_item(manifest, shortlist_size=args.shortlist_size)
     except (IngestionError, ExtractionError) as exc:
@@ -78,7 +84,7 @@ def cmd_next(args: argparse.Namespace, root: Path) -> int:
 
 
 def cmd_queue(args: argparse.Namespace, root: Path) -> int:
-    manifest = _load(root)
+    manifest = _load(root, args)
     try:
         queue = compute_queue(manifest)
     except (IngestionError, ExtractionError) as exc:
@@ -103,7 +109,7 @@ def _read_content(content_file: str) -> str:
 
 
 def cmd_report(args: argparse.Namespace, root: Path) -> int:
-    manifest = _load(root)
+    manifest = _load(root, args)
     from llmwiki.ingestion import scan_code
 
     per_source = []
@@ -122,7 +128,7 @@ def cmd_report(args: argparse.Namespace, root: Path) -> int:
 
 
 def cmd_write_page(args: argparse.Namespace, root: Path) -> int:
-    manifest = _load(root)
+    manifest = _load(root, args)
     raw = _read_content(args.content_file)
     try:
         # The worker may or may not include frontmatter; parse leniently.
@@ -167,8 +173,8 @@ def cmd_write_page(args: argparse.Namespace, root: Path) -> int:
     except GuardError as exc:
         raise CommandError(str(exc), exit_code=2)
 
-    # The tool stamps the given Trecho hash (from the work item); it does not
-    # re-read the Source text, only its provenance hash/commit.
+    # The tool preserves prior contributions and verifies code provenance
+    # before stamping the delivered Trecho.
     try:
         path = stamp_write(
             manifest,

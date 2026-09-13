@@ -1,11 +1,12 @@
 """Ticket 15: skill and no-install distribution.
 
 The skill prose itself governs model judgement and has **no honest automated
-test** — asserting on its wording would test the writer, not the tool. We record
-that deliberate gap here (see ``test_skill_prose_has_no_automated_assertion``)
-and instead test the structural, verifiable properties: the binary runs on a
-plain shell without an API key, and the skill's references go at most one level
-deep.
+test** — asserting on its wording would test the writer, not the tool (spec:
+"Fica **sem teste automatizado** a skill que ensina o assistente a usar a CLI:
+é prosa que governa julgamento de modelo"). What *is* testable here are the
+structural, verifiable properties: the binary runs on a plain shell without an
+API key, invocation works without a prior install step, and the skill's
+references go at most one level deep.
 """
 
 from __future__ import annotations
@@ -90,25 +91,3 @@ def test_skill_exists_and_references_go_one_level_deep():
         assert not deeper, f"{target} references go more than one level deep: {deeper}"
 
 
-def test_skill_description_is_third_person_with_triggers():
-    text = SKILL.read_text(encoding="utf-8")
-    # Frontmatter description block.
-    m = re.search(r"^description:\s*(.+)$", text, re.MULTILINE)
-    assert m, "skill needs a description"
-    desc = m.group(1).lower()
-    # Third person "Use when ..." style, not "you"/"I".
-    assert "use when" in desc
-    # Trigger terms are present.
-    assert "wiki" in desc or "knowledge base" in desc
-
-
-def test_skill_prose_has_no_automated_assertion():
-    """Documented gap: the skill's *prose quality* is intentionally untested.
-
-    The prose governs model judgement (when to reach for the wiki, how to phrase
-    a query). There is no honest assertion for that — checking wording would
-    test the author, not the tool — so we assert only its structure elsewhere
-    and record the omission here on purpose (spec: "Fica sem teste automatizado
-    a skill que ensina o assistente a usar a CLI").
-    """
-    assert SKILL.exists()  # structure is tested; prose quality is not, by design

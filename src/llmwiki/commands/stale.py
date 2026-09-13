@@ -26,6 +26,7 @@ def cmd_report(args: argparse.Namespace, root: Path) -> int:
         raise CommandError(str(exc))
     bundle = manifest.bundle_path
     stale = []
+    unverifiable = []
     if bundle.exists():
         for page_file in sorted(bundle.rglob("*.md")):
             if page_file.name in RESERVED_FILES:
@@ -37,5 +38,7 @@ def cmd_report(args: argparse.Namespace, root: Path) -> int:
                 continue  # not verifiable → reported neither stale nor current
             if report["stale"]:
                 stale.append({"id": cid, "changed": report["changed"]})
-    print(json.dumps({"stale": stale}))
+            if report.get("unverifiable"):
+                unverifiable.append({"id": cid, "reasons": report["unverifiable"]})
+    print(json.dumps({"stale": stale, "unverifiable": unverifiable}))
     return 0

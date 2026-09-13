@@ -4,12 +4,18 @@
 
 **Blocked by:** 04, 05.
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Listar as Páginas Sujas da wiki
-- [ ] Página tocada por um único Trecho não é suja
-- [ ] Página nunca consolidada e tocada por mais de um Trecho é suja
-- [ ] A consolidação relê só a página, sem reabrir as Fontes
-- [ ] A consolidação roda em modo consolidação, com a guarda no perfil correspondente
-- [ ] Ao terminar, o conjunto de Trechos contribuintes vigente é gravado e a página deixa de ser suja
-- [ ] O passe nunca dispara durante a ingestão
+- [x] Listar as Páginas Sujas da wiki
+- [x] Página tocada por um único Trecho não é suja
+- [x] Página nunca consolidada e tocada por mais de um Trecho é suja
+- [x] A consolidação relê só a página, sem reabrir as Fontes
+- [x] A consolidação roda em modo consolidação, com a guarda no perfil correspondente
+- [x] Ao terminar, o conjunto de Trechos contribuintes vigente é gravado e a página deixa de ser suja
+- [x] O passe nunca dispara durante a ingestão
+
+## Comments
+
+- 2026-09-12 — Reaberto após review de `75597d6...4eb32c1`. A segunda contribuição pode substituir os carimbos anteriores e a página não aparece como suja. Correção em [16 — preservar carimbos](16-preservar-carimbos-augmentacao.md), incluindo regressão antes e depois de consolidar.
+
+- 2026-09-12 — Concluído. Regressões da issue 16 comprovam sujeira antes/depois da consolidação e preservação de histórico em rascunhos incompletos.

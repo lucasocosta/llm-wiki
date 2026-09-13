@@ -1,95 +1,62 @@
-"""Staleness: a page is a Página Obsoleta when its Source changed after derivation.
+"""Compare each page's derivation versions with its current Sources.
 
-Exact, not calendar-based (ADR 0001): a page derived from a file compares the
-content hash; a page derived from code compares the commit SHA. The check is
-triggered by the *presence of provenance*, not by ``type``: ``type`` describes
-what the page is to a reader, not how it is maintained (ticket 10). A page
-without verifiable provenance is reported neither stale nor current.
+An updated shared mirror cannot refresh a conceptual page's provenance.
+Unknown historical versions remain explicitly unverifiable.
 """
 
 from __future__ import annotations
 
-from pathlib import Path
+import hashlib
 
 from llmwiki.manifest import Manifest
-from llmwiki.okf.page import Page, read_page
-from llmwiki.reference import content_hash
-
-
-def _referenced_source_ids(page: Page) -> list[str]:
-    """Source ids this page draws provenance from.
-
-    Prefers the tool-stamped ``source_ids`` (ticket 10); falls back to any
-    ``source_id``/``id`` recorded inside ``sources`` entries.
-    """
-    stamped = page.frontmatter.get("source_ids")
-    if stamped:
-        return [str(s) for s in stamped]
-    ids = []
-    for entry in page.frontmatter.get("sources", []) or []:
-        if isinstance(entry, dict):
-            sid = entry.get("source_id") or entry.get("id")
-            if sid:
-                ids.append(str(sid))
-    return ids
-
-
-def _provenance_of(manifest: Manifest, source_id: str) -> dict | None:
-    """Read the Source Mirror's provenance for a Source id, if it exists."""
-    ref_path = manifest.bundle_path / "references" / f"{source_id}.md"
-    if not ref_path.exists():
-        return None
-    ref = read_page(ref_path, require_type=False)
-    prov = ref.frontmatter.get("source_provenance")
-    return prov if isinstance(prov, dict) else None
+from llmwiki.okf.page import Page
+from llmwiki.provenance import code_file_version
 
 
 def staleness_report(manifest: Manifest, *, page_id: str, page: Page) -> dict | None:
-    """Return a staleness report for a page, or None if not verifiable.
-
-    The report is ``{"stale": bool, "changed": [...]}``. It is computed by
-    comparing the provenance recorded on the page's Source Mirror(s) against the
-    current Source on disk.
-    """
-    source_ids = _referenced_source_ids(page)
+    versions = page.frontmatter.get("source_versions", {})
+    source_ids = set(page.frontmatter.get("source_ids", []) or []) | set(versions)
+    for entry in page.frontmatter.get("sources", []) or []:
+        if isinstance(entry, dict) and entry.get("source_id"):
+            source_ids.add(entry["source_id"])
+    if page_id.startswith("references/") and page.frontmatter.get("source_provenance"):
+        sid = page_id.removeprefix("references/")
+        versions = {sid: page.frontmatter["source_provenance"]}
+        source_ids = {sid}
     if not source_ids:
         return None
 
-    changed: list[dict] = []
-    verifiable = False
-    for sid in source_ids:
-        prov = _provenance_of(manifest, sid)
-        if not prov:
+    changed = []
+    unverifiable = []
+    for sid in sorted(source_ids):
+        version = versions.get(sid)
+        if not version:
+            unverifiable.append({"source_id": sid, "reason": "no derivation version recorded on this page"})
             continue
-        source_path = manifest.root / prov.get("path", "")
-        if not source_path.exists():
-            continue
-        verifiable = True
-        try:
-            source = manifest.source(sid)
-        except Exception:
-            source = None
-
-        # Code sources compare commit SHA; file sources compare content hash.
-        if source is not None and source.type == "code" and prov.get("commit"):
-            if source.commit and source.commit != prov.get("commit"):
-                changed.append(
-                    {"source_id": sid, "kind": "commit",
-                     "was": prov.get("commit"), "now": source.commit}
-                )
+        source_path = manifest.root / version.get("path", "")
+        if version.get("type", version.get("source_type")) == "code":
+            files = version.get("files", {})
+            if not files:
+                unverifiable.append({"source_id": sid, "reason": "no per-file code revision recorded"})
+            for relative, previous in files.items():
+                current = code_file_version(source_path / relative)
+                identity = {"source_id": sid, "path": relative}
+                if not previous.get("commit") or not current.get("commit"):
+                    unverifiable.append({**identity, "reason": previous.get("unverifiable") or current.get("unverifiable") or "no recorded commit"})
+                elif previous["commit"] != current["commit"]:
+                    changed.append({**identity, "kind": "commit", "was": previous["commit"], "now": current["commit"]})
+                if previous.get("content_hash") and current.get("content_hash") and previous["content_hash"] != current["content_hash"] and not current.get("commit"):
+                    changed.append({**identity, "kind": "content_hash", "was": previous["content_hash"], "now": current["content_hash"]})
+        elif source_path.is_file() and version.get("content_hash"):
+            current_hash = hashlib.sha256(source_path.read_bytes()).hexdigest()
+            if current_hash != version["content_hash"]:
+                changed.append({"source_id": sid, "kind": "content_hash", "was": version["content_hash"], "now": current_hash})
         else:
-            import hashlib
+            unverifiable.append({"source_id": sid, "reason": "source file or recorded content hash is missing"})
 
-            if source is not None and source.type == "pdf":
-                current = hashlib.sha256(source_path.read_bytes()).hexdigest()
-            else:
-                current = content_hash(source_path.read_text(encoding="utf-8"))
-            if current != prov.get("content_hash"):
-                changed.append(
-                    {"source_id": sid, "kind": "content_hash",
-                     "was": prov.get("content_hash"), "now": current}
-                )
-
-    if not verifiable:
-        return None
-    return {"stale": bool(changed), "changed": changed}
+    result = {"stale": bool(changed), "changed": changed}
+    if unverifiable:
+        result["unverifiable"] = unverifiable
+        if not changed:
+            result["stale"] = None
+    return result

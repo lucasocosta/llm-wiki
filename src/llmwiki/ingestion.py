@@ -15,7 +15,7 @@ model remembering, one omission would make the page look clean forever (spec).
 from __future__ import annotations
 
 import datetime as _dt
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 
 from llmwiki.extract import (
@@ -26,7 +26,8 @@ from llmwiki.extract import (
 from llmwiki.manifest import Manifest, Source
 from llmwiki.okf.page import RESERVED_FILES, Page, read_page, write_page
 from llmwiki.reference import ensure_reference
-from llmwiki.trecho import Trecho
+from llmwiki.provenance import code_file_version, validate_code_pin
+from llmwiki.trecho import Trecho, limit_trechos
 
 GENERATED_BY = "llm-wiki"
 # Minimum extracted characters per page/Trecho below which a Source is refused
@@ -66,7 +67,7 @@ def _source_path(manifest: Manifest, source: Source) -> Path:
 def _source_hash_and_relpath(manifest: Manifest, source: Source) -> tuple[str, str]:
     """Return (content_hash, rel_path) for a Source's mirror provenance.
 
-    Text/markdown hash their UTF-8 content; PDF hashes its bytes. Code Sources
+    Single-file Sources hash their original bytes. Code Sources
     have no single content hash; their provenance key is the commit SHA
     (handled by the caller), so this returns an empty hash and the code path.
     """
@@ -84,14 +85,16 @@ def _source_hash_and_relpath(manifest: Manifest, source: Source) -> tuple[str, s
     if not path.exists():
         raise IngestionError(f"source file not found for {source.id!r}: {path}")
     rel_path = path.relative_to(manifest.root.resolve()).as_posix()
-    if source.type == "pdf":
-        digest = hashlib.sha256(path.read_bytes()).hexdigest()
-    else:
-        digest = hashlib.sha256(path.read_text(encoding="utf-8").encode("utf-8")).hexdigest()
+    digest = hashlib.sha256(path.read_bytes()).hexdigest()
     return digest, rel_path
 
 
 def extract_source(manifest: Manifest, source: Source) -> list[Trecho]:
+    """Keep natural boundaries, subdividing only units above the wiki budget."""
+    return limit_trechos(_extract_natural_source(manifest, source), manifest.max_trecho_chars)
+
+
+def _extract_natural_source(manifest: Manifest, source: Source) -> list[Trecho]:
     """Extract the Trechos for one Source, applying the extractor for its type."""
     if source.type == "markdown":
         text = _source_path(manifest, source).read_text(encoding="utf-8")
@@ -136,7 +139,13 @@ def scan_code(manifest: Manifest, source: Source):
     base = code_base_path(manifest, source)
     if not base.exists():
         raise IngestionError(f"code source path not found for {source.id!r}: {base}")
-    return scan_code_source(base, source.allowlist)
+    scan = scan_code_source(base, source.allowlist)
+    if source.repository:
+        try:
+            validate_code_pin(base, source.commit, scan.included)
+        except ValueError as exc:
+            raise IngestionError(f"source {source.id!r}: {exc}") from exc
+    return scan
 
 
 def extract_code_source(manifest: Manifest, source: Source) -> list[Trecho]:
@@ -147,7 +156,8 @@ def extract_code_source(manifest: Manifest, source: Source) -> list[Trecho]:
     ordered = order_leaves_first(base, scan.included)
     trechos: list[Trecho] = []
     for i, path in enumerate(ordered):
-        trechos.append(extract_code_file(source.id, path, i))
+        trecho = extract_code_file(source.id, path, i)
+        trechos.append(replace(trecho, source_path=path.relative_to(base).as_posix()))
     return trechos
 
 
@@ -224,6 +234,14 @@ def next_work_item(manifest: Manifest, shortlist_size: int = 5) -> WorkItem | No
     return WorkItem(trecho=trecho, shortlist=shortlist)
 
 
+def preserve_contributions(page: Page, previous: Page | None) -> None:
+    """Tool-owned history comes from disk, never from a worker's draft."""
+    for key in ("trechos", "source_ids", "consolidated_trechos", "source_versions"):
+        page.frontmatter.pop(key, None)
+        if previous is not None and key in previous.frontmatter:
+            page.frontmatter[key] = previous.frontmatter[key]
+
+
 def stamp_write(
     manifest: Manifest,
     *,
@@ -239,11 +257,13 @@ def stamp_write(
     ``generated_by``, appends ``trecho_hash`` to ``trechos`` (deduplicated),
     records the contributing ``source_id`` (for staleness), then ensures the
     Source Mirror exists. The caller passes the Trecho hash from the work item;
-    this function does not re-read the Source text, only its provenance
-    hash/commit. Identity (``type``) is the caller's responsibility (spec §28).
+    code is revalidated against the delivered hash to identify the contributing
+    files and reject changed external checkouts. Identity (``type``) is the caller's responsibility (spec §28).
     """
     bundle = manifest.bundle_path
     page_path = bundle / f"{page_id}.md"
+    previous = read_page(page_path) if page_path.exists() else None
+    preserve_contributions(page, previous)
 
     page.frontmatter["id"] = page_id
     page.frontmatter["generated"] = (now or _dt.date.today()).isoformat()
@@ -257,17 +277,33 @@ def stamp_write(
     src_ids.add(source_id)
     page.frontmatter["source_ids"] = sorted(src_ids)
 
-    write_page(page_path, page)
-
-    # Ensure the Source Mirror for the contributing Source exists.
     source = manifest.source(source_id)
     src_hash, rel_path = _source_hash_and_relpath(manifest, source)
+    versions = dict(page.frontmatter.get("source_versions", {}))
+    version = {"type": source.type, "path": rel_path}
+    if source.type == "code":
+        matches = [t for t in extract_source(manifest, source) if t.hash == trecho_hash]
+        if not matches:
+            raise IngestionError(f"source {source.id!r}: Trecho is no longer present; request the current work item")
+        files = dict(versions.get(source_id, {}).get("files", {}))
+        for trecho in matches:
+            files[trecho.source_path] = code_file_version(code_base_path(manifest, source) / trecho.source_path)
+        version["files"] = files
+    else:
+        version["content_hash"] = src_hash
+    versions[source_id] = version
+    page.frontmatter["source_versions"] = versions
+
+    write_page(page_path, page)
+
+    # Updating the shared mirror never refreshes another page's derivation.
     ensure_reference(
         bundle,
         source_id=source.id,
         source_type=source.type,
         rel_path=rel_path,
         source_hash=src_hash,
-        commit=source.commit,
+        commit=source.commit if source.repository else None,
+        version=version,
     )
     return page_path

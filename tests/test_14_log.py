@@ -46,10 +46,29 @@ def test_log_parseable_by_unix_tools(cli, wiki, tmp_path):
 
 def test_newest_date_first(cli, wiki, tmp_path):
     _ingest_two(cli, wiki, tmp_path)
-    from llmwiki.log import append_log
-
-    # Inject an older-dated entry; it must sort below today's header.
-    append_log(wiki.bundle, "old event", when=_dt.datetime(2000, 1, 1, 12, 0, 0))
+    # Prepare genuine persisted history, then append through an ingestion command.
+    (wiki.bundle / "log.md").write_text("# Log\n\n## 2000-01-01\n\n- 12:00:00 historical event\n")
+    wiki.write_manifest(
+        sources=[
+            {"id": "notes", "type": "markdown", "location": "notes.md"},
+            {"id": "more", "type": "markdown", "location": "more.md"},
+        ]
+    )
+    wiki.write_source(
+        "more.md",
+        "# Gamma\n\nPlenty of content about gamma here.\n\n# Delta\n\nPlenty about delta too.\n",
+    )
+    for pid in ("gamma", "delta"):
+        item = cli("ingest", "next").json
+        cf = tmp_path / f"{pid}.md"
+        cf.write_text(f"---\ntype: Topic\ntitle: {pid}\n---\n\nbody\n", encoding="utf-8")
+        cli(
+            "ingest", "write-page",
+            "--page-id", pid,
+            "--source-id", item["source_id"],
+            "--trecho-hash", item["trecho_hash"],
+            "--content-file", str(cf),
+        )
     log = (wiki.bundle / "log.md").read_text(encoding="utf-8")
     headers = [ln[3:].strip() for ln in log.splitlines() if ln.startswith("## ")]
     assert headers == sorted(headers, reverse=True)

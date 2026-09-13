@@ -4,12 +4,12 @@
 
 **Blocked by:** 02.
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] O índice cobre frontmatter e corpo, com peso maior em título, descrição e tags
-- [ ] Cada resultado traz id, título, `type` e descrição, e nunca o corpo
-- [ ] Filtro por `type` e por tags
-- [ ] O snippet do trecho que casou só aparece com a flag; não é o padrão
-- [ ] O índice vive fora do controle de versão e é reconstruído quando as páginas mudam
-- [ ] Sobre fixtures conhecidas, a ordem dos resultados é a esperada
-- [ ] Busca lexical apenas: nenhum embedding, nenhum índice vetorial, nenhum modelo local
+- [x] O índice cobre frontmatter e corpo, com peso maior em título, descrição e tags
+- [x] Cada resultado traz id, título, `type` e descrição, e nunca o corpo
+- [x] Filtro por `type` e por tags
+- [x] O snippet do trecho que casou só aparece com a flag; não é o padrão
+- [x] O índice vive fora do controle de versão e é reconstruído quando as páginas mudam
+- [x] Sobre fixtures conhecidas, a ordem dos resultados é a esperada
+- [x] Busca lexical apenas: nenhum embedding, nenhum índice vetorial, nenhum modelo local

@@ -147,8 +147,7 @@ def check_write(
 
     if mode is Mode.INGESTION:
         _check_ingestion(old, new, max_shrink)
-    else:
-        _check_consolidation(old, new)
+    _check_citations(old, new)
 
 
 def _check_ingestion(old: Page, new: Page, max_shrink: float) -> None:
@@ -185,7 +184,7 @@ def _check_ingestion(old: Page, new: Page, max_shrink: float) -> None:
             )
 
 
-def _check_consolidation(old: Page, new: Page) -> None:
+def _check_citations(old: Page, new: Page) -> None:
     # The single looser invariant: every sources entry cited before must still
     # be cited by some footnote after. Freeing merge/shrink/prune of links.
     old_cited = _cited_source_ids(old)
@@ -193,7 +192,7 @@ def _check_consolidation(old: Page, new: Page) -> None:
     lost_citations = sorted(old_cited - new_cited)
     if lost_citations:
         raise GuardError(
-            f"consolidation invariant (citations preserved): these sources "
+            f"ingestion/consolidation invariant (citations preserved): these sources "
             f"entries were cited before and are no longer cited by any "
-            f"footnote: {lost_citations}"
+            f"footnote: {lost_citations}; keep a body citation for each entry"
         )
