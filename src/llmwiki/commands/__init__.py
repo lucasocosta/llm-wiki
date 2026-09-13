@@ -26,6 +26,7 @@ def register(sub: "argparse._SubParsersAction") -> None:
         graph,
         index_cmd,
         ingest,
+        init,
         query,
         sources,
         stale,
@@ -38,3 +39,4 @@ def register(sub: "argparse._SubParsersAction") -> None:
     stale.register(sub)
     consolidate.register(sub)
     sources.register(sub)
+    init.register(sub)

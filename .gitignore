@@ -8,11 +8,15 @@
 .kiro/skills/
 skills-lock.json
 
-# Estado derivado da wiki.
-# O índice de máquina e qualquer cache de ingestão são reconstrutíveis a partir
-# das páginas. Versionar índice derivado gera conflito de merge em arquivo que
-# ninguém edita à mão — mesmo motivo pelo qual a fila de trabalho é computada e
-# não persistida.
+# A wiki inteira (llm-wiki/) é estado local de leitura, não do projeto: o
+# Bundle, suas Fontes e o estado derivado (.llmwiki/) moram todos dentro dela.
+# A proveniência das páginas verifica contra os arquivos na máquina (hash de
+# conteúdo/commit via git no código-fonte versionado) — clonar o repo sem a
+# wiki deixa as páginas de código verificáveis e as demais exigem reingestão.
+# Para versionar conhecimento deste projeto, negue as regras específicas:
+# !llm-wiki/wiki/
+# !llm-wiki/llm-wiki.yml
+llm-wiki/
 .llmwiki/
 
 # Python

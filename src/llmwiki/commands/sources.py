@@ -13,6 +13,7 @@ so reorganising the wiki does not produce broken links (spec).
 from __future__ import annotations
 
 import argparse
+import json
 import re
 import posixpath
 from pathlib import Path
@@ -43,6 +44,18 @@ def register(sub: "argparse._SubParsersAction") -> None:
     rm.add_argument("--source-entry-id", required=True)
     rm.set_defaults(func=cmd_remove_source_entry)
 
+    lt = ssub.add_parser(
+        "list-trechos",
+        help="curator: enumerate the CURRENT Trechos of a Source (also already-stamped ones)",
+    )
+    lt.add_argument("source_id", help="Fonte id (must be in the manifest)")
+    lt.add_argument(
+        "--with-text",
+        action="store_true",
+        help="include the Trecho text in the payload (payload grows in text)",
+    )
+    lt.set_defaults(func=cmd_list_trechos)
+
     mv = ssub.add_parser(
         "move-page",
         help="curator: move/rename a page, updating referrers in the same op",
@@ -57,6 +70,44 @@ def _manifest(root: Path):
         return load_manifest(root)
     except ManifestError as exc:
         raise CommandError(str(exc))
+
+
+def cmd_list_trechos(args: argparse.Namespace, root: Path) -> int:
+    """Ticket 15: enumerate all current Trechos for curation/migration.
+
+    ``ingest queue``/``next`` only expose pending Trechos; migration and
+    re-stamping need the *current* set (also the stamped ones). This is a
+    curator command, and it replaces the internal-extractor workaround the
+    migration had to do.
+    """
+    try:
+        manifest = load_manifest(root)
+        source = manifest.source(args.source_id)
+    except ManifestError as exc:
+        raise CommandError(str(exc))
+    from llmwiki.ingestion import _extract_source
+    from llmwiki.usage import record
+
+    try:
+        trechos = _extract_source(manifest, source)
+    except Exception as exc:
+        raise CommandError(str(exc))
+    payload = []
+    for t in trechos:
+        item = {
+            "source_id": t.source_id,
+            "trecho_hash": t.hash,
+            "trecho_index": t.index,
+            "anchor": t.anchor,
+        }
+        if getattr(t, "source_path", None):
+            item["source_path"] = t.source_path
+        if args.with_text:
+            item["text"] = t.text
+        payload.append(item)
+    print(json.dumps(payload))
+    record(root, "sources list-trechos", len(json.dumps(payload)))
+    return 0
 
 
 def cmd_remove_source_entry(args: argparse.Namespace, root: Path) -> int:

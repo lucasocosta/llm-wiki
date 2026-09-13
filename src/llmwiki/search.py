@@ -43,8 +43,20 @@ def _tokenize(text: str) -> list[str]:
 
 
 def _index_dir(bundle_root: Path) -> Path:
-    # Store the machine index beside the repo root (parent of the bundle), so a
-    # single .llmwiki/ holds cache for the whole repo. Falls back to bundle.
+    """Where the machine index cache lives: beside the *manifest* root.
+
+    The bundle may sit nested (e.g. ``llm-wiki/wiki`` per the layout decision,
+    ticket 13); walking up to the directory that holds ``llm-wiki.yml`` keeps
+    a single ``.llmwiki/`` per wiki. Falls back to the bundle's parent (the
+    historical default when the bundle was at the repo root).
+    """
+    probe = Path(bundle_root)
+    for _ in range(5):
+        if (probe / "llm-wiki.yml").exists():
+            return probe / INDEX_DIR
+        if probe.parent == probe:
+            break
+        probe = probe.parent
     return Path(bundle_root).parent / INDEX_DIR
 
 

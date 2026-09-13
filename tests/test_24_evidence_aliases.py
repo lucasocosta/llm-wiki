@@ -70,3 +70,25 @@ def test_alias_deterministic_between_rebuilds(cli, wiki, worker):
         r1 = cli("search", q)
         r2 = cli("search", q)
         assert r1.stdout == r2.stdout
+
+
+# --- Ticket 13 (decisão de layout): índice fica junto do manifesto ---
+
+
+def test_nested_layout_index_lives_beside_manifest(cli, tmp_path):
+    wiki = tmp_path / "llm-wiki"
+    (wiki / "sources").mkdir(parents=True, exist_ok=True)
+    (wiki / "wiki").mkdir(parents=True, exist_ok=True)
+    import yaml
+    (tmp_path / "llm-wiki.yml").write_text(yaml.safe_dump({
+        "bundle_dir": "llm-wiki/wiki",
+        "sources_dir": "llm-wiki/sources",
+        "language": "pt-BR",
+        "sources": [{"id": "md", "type": "markdown", "location": "doc.md"}],
+    }))
+    (wiki / "sources" / "doc.md").write_text("# Sobre a busca\n\n" + "texto. " * 40)
+    r = cli("search", "busca")
+    assert r.exit_code == 0, r.stderr
+    # Index cache went beside the manifest, not inside the nested bundle parent.
+    assert (tmp_path / ".llmwiki" / "search-index.json").exists()
+    assert not (wiki / ".llmwiki").exists()

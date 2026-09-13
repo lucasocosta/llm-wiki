@@ -9,15 +9,21 @@ Trecho, redige páginas e devolve cada escrita para validação.
 Com Python 3.10+ e `uv`, execute a partir deste projeto, sem instalação permanente:
 
 ```sh
-uvx --from . llm-wiki -C /caminho/do/projeto ingest next
+uvx --from . llm-wiki -C /caminho/do/projeto/llm-wiki ingest next
 ```
+
+`-C` aponta para o diretório do manifesto (`llm-wiki.yml`). O layout padrão
+deixa `bundle_dir` e `sources_dir` livres: um projeto pode consolidar wiki e
+Fontes numa mesma subpasta (ex.: `llm-wiki/wiki` + `llm-wiki/sources`), como
+neste próprio repositório — o índice de máquina continua em um único
+`.llmwiki/` junto do manifesto, resolvido subindo a árvore a partir do Bundle.
 
 Os exemplos seguintes usam `llm-wiki` como abreviação dessa invocação. O diretório
 indicado por `-C` contém o manifesto `llm-wiki.yml`:
 
 ```yaml
-bundle_dir: wiki
-sources_dir: sources
+bundle_dir: wiki          # ex.: llm-wiki/wiki (aninhado, como neste repo)
+sources_dir: sources        # ex.: llm-wiki/sources
 language: pt-BR
 max_trecho_chars: 12000
 sources:
@@ -50,8 +56,11 @@ llm-wiki ingest write-page --max-trecho-chars 6000 \
 Use o mesmo teto ao pedir trabalho, gravar e retomar. Com as mesmas Fontes e
 configuração, os Trechos e seus hashes são determinísticos, inclusive em outra
 máquina. Mudar o teto pode mudar os hashes e gerar trabalho novamente. A opção
-da CLI não altera o manifesto. Para compartilhar a configuração, versione-a
-no manifesto junto do Bundle e das Fontes.
+da CLI não altera o manifesto. Versionar ou não a pasta da wiki é decisão do curador: o `llm-wiki init`
+instala a regra `.llmwiki/` (derivados devem ser ignorados) e deixa
+`wiki/`/`sources/` versionáveis. Neste repositório a wiki é apenas **teste da
+ferramenta**, então todo o `llm-wiki/` está ignorado — reingestão em clone
+novo; páginas de código continuam verificáveis (o `src/` é versionado).
 
 `--trecho-hash` pode ser repetido para gravar vários Trechos da mesma Fonte numa
 Página Conceitual. Todos os hashes são validados contra o conteúdo atual da Fonte
@@ -109,7 +118,7 @@ precisa de symlink dentro de `sources/`:
 sources:
   - id: meu-codigo
     type: code
-    location: src/pacote
+    location: ../src/pacote   # relativo à raiz do manifesto (llm-wiki/)
     allowlist: ["*.py"]
 ```
 
